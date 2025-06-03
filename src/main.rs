@@ -13,6 +13,7 @@ use crossterm::{
         DisableMouseCapture, EnableMouseCapture, Event, KeyCode, KeyModifiers, MouseEventKind,
     },
     execute,
+    terminal::{EnterAlternateScreen, LeaveAlternateScreen},
 };
 use ratatui::prelude::*;
 use std::{cmp::min, fs, io, iter::zip, process::ExitCode};
@@ -26,10 +27,10 @@ fn main() -> anyhow::Result<ExitCode> {
     let args = Args::parse();
 
     let mut terminal = ratatui::init();
-    execute!(io::stdout(), EnableMouseCapture)?;
+    execute!(io::stdout(), EnterAlternateScreen, EnableMouseCapture)?;
 
     let _guard = defer(|| {
-        let _ = execute!(io::stdout(), DisableMouseCapture);
+        let _ = execute!(io::stdout(), LeaveAlternateScreen, DisableMouseCapture);
         ratatui::restore();
     });
 
