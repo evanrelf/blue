@@ -42,6 +42,9 @@ fn main() -> anyhow::Result<ExitCode> {
     loop {
         terminal.draw(|frame| render(&editor, frame.area(), frame.buffer_mut()))?;
         let event = crossterm::event::read()?;
+        if matches!(event, Event::Resize(_, _)) {
+            continue;
+        }
         if let Some(exit_code) = update(&mut editor, &event) {
             return Ok(exit_code);
         }
