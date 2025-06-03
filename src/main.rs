@@ -111,28 +111,16 @@ struct Editor {
 
 impl Editor {
     fn new() -> anyhow::Result<Self> {
-        Ok(Self {
-            pwd: Utf8PathBuf::try_from(env::current_dir()?)?,
-            path: None,
-            text: Rope::new(),
-            cursor: 0,
-            vertical_scroll: 0,
-            exit_code: None,
-        })
+        Self::try_from(Rope::new())
     }
 
     fn open(path: impl AsRef<Utf8Path>) -> anyhow::Result<Self> {
         let path = path.as_ref().canonicalize_utf8()?;
         let string = fs::read_to_string(&path)?;
         let rope = Rope::from(string);
-        Ok(Self {
-            pwd: Utf8PathBuf::try_from(env::current_dir()?)?,
-            path: Some(path),
-            text: rope,
-            cursor: 0,
-            vertical_scroll: 0,
-            exit_code: None,
-        })
+        let mut editor = Self::try_from(rope)?;
+        editor.path = Some(path);
+        Ok(editor)
     }
 
     fn move_left(&mut self, count: usize) {
@@ -166,5 +154,19 @@ impl Editor {
             self.text.line_len().saturating_sub(1),
             self.vertical_scroll + distance,
         );
+    }
+}
+
+impl TryFrom<Rope> for Editor {
+    type Error = anyhow::Error;
+    fn try_from(rope: Rope) -> Result<Self, Self::Error> {
+        Ok(Self {
+            pwd: Utf8PathBuf::try_from(env::current_dir()?)?,
+            path: None,
+            text: rope,
+            cursor: 0,
+            vertical_scroll: 0,
+            exit_code: None,
+        })
     }
 }
