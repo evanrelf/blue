@@ -15,8 +15,9 @@ use crossterm::{
     execute,
     terminal::{EnterAlternateScreen, LeaveAlternateScreen},
 };
+use pathdiff::diff_utf8_paths;
 use ratatui::prelude::*;
-use std::{cmp::min, fs, io, iter::zip, process::ExitCode};
+use std::{cmp::min, env, fs, io, iter::zip, process::ExitCode};
 
 #[derive(clap::Parser)]
 struct Args {
@@ -37,7 +38,7 @@ fn main() -> anyhow::Result<ExitCode> {
     let mut editor = if let Some(path) = args.file {
         Editor::open(path)?
     } else {
-        Editor::new()
+        Editor::new()?
     };
 
     loop {
@@ -71,8 +72,8 @@ fn render_text(editor: &Editor, area: Rect, buffer: &mut Buffer) {
 
 fn render_status_bar(editor: &Editor, area: Rect, buffer: &mut Buffer) {
     let path = match &editor.path {
-        None => "*scratch*",
-        Some(path) => path.as_str(),
+        None => String::from("*scratch*"),
+        Some(path) => diff_utf8_paths(path, &editor.pwd).unwrap().to_string(),
     };
     let cursor = editor.cursor;
     let status_bar = format!("{path} {cursor}");
@@ -99,8 +100,8 @@ fn update(editor: &mut Editor, event: &Event) {
     }
 }
 
-#[derive(Default)]
 struct Editor {
+    pwd: Utf8PathBuf,
     path: Option<Utf8PathBuf>,
     text: Rope,
     cursor: usize,
@@ -109,8 +110,15 @@ struct Editor {
 }
 
 impl Editor {
-    fn new() -> Self {
-        Self::default()
+    fn new() -> anyhow::Result<Self> {
+        Ok(Self {
+            pwd: Utf8PathBuf::try_from(env::current_dir()?)?,
+            path: None,
+            text: Rope::new(),
+            cursor: 0,
+            vertical_scroll: 0,
+            exit_code: None,
+        })
     }
 
     fn open(path: impl AsRef<Utf8Path>) -> anyhow::Result<Self> {
@@ -118,9 +126,12 @@ impl Editor {
         let string = fs::read_to_string(&path)?;
         let rope = Rope::from(string);
         Ok(Self {
+            pwd: Utf8PathBuf::try_from(env::current_dir()?)?,
             path: Some(path),
             text: rope,
-            ..Self::default()
+            cursor: 0,
+            vertical_scroll: 0,
+            exit_code: None,
         })
     }
 
