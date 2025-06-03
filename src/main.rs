@@ -1,6 +1,10 @@
 mod defer;
+mod graphemes;
 
-use crate::defer::defer;
+use crate::{
+    defer::defer,
+    graphemes::{next_grapheme_boundary, prev_grapheme_boundary},
+};
 use camino::Utf8PathBuf;
 use clap::Parser as _;
 use crop::Rope;
@@ -45,6 +49,11 @@ fn main() -> anyhow::Result<ExitCode> {
 }
 
 fn render(editor: &Editor, area: Rect, buffer: &mut Buffer) {
+    render_text(editor, area, buffer);
+    render_cursor(editor, area, buffer);
+}
+
+fn render_text(editor: &Editor, area: Rect, buffer: &mut Buffer) {
     for (line, row) in zip(
         editor.text.lines().skip(editor.vertical_scroll),
         area.rows(),
@@ -53,10 +62,17 @@ fn render(editor: &Editor, area: Rect, buffer: &mut Buffer) {
     }
 }
 
+fn render_cursor(editor: &Editor, area: Rect, buffer: &mut Buffer) {
+    // TODO: Actually render a colored rectangle
+    Text::raw(format!("{}", editor.cursor)).render(area, buffer);
+}
+
 fn update(editor: &mut Editor, event: &Event) -> Option<ExitCode> {
     let mut exit_code = None;
     match event {
         Event::Key(key) => match (key.modifiers, key.code) {
+            (m, KeyCode::Char('h')) if m == KeyModifiers::NONE => editor.move_left(1),
+            (m, KeyCode::Char('l')) if m == KeyModifiers::NONE => editor.move_right(1),
             (m, KeyCode::Char('c')) if m == KeyModifiers::CONTROL => {
                 exit_code = Some(ExitCode::FAILURE);
             }
@@ -76,7 +92,9 @@ fn update(editor: &mut Editor, event: &Event) -> Option<ExitCode> {
 #[derive(Default)]
 struct Editor {
     text: Rope,
+    cursor: usize,
     vertical_scroll: usize,
+    // TODO: Move exit code into editor state
 }
 
 impl Editor {
@@ -91,6 +109,24 @@ impl Editor {
             text: rope,
             ..Self::default()
         })
+    }
+
+    fn move_left(&mut self, count: usize) {
+        for _ in 0..count {
+            match prev_grapheme_boundary(&self.text.byte_slice(..), self.cursor) {
+                Some(prev) if self.cursor != prev => self.cursor = prev,
+                _ => break,
+            }
+        }
+    }
+
+    fn move_right(&mut self, count: usize) {
+        for _ in 0..count {
+            match next_grapheme_boundary(&self.text.byte_slice(..), self.cursor) {
+                Some(next) if self.cursor != next => self.cursor = next,
+                _ => break,
+            }
+        }
     }
 
     fn scroll_up(&mut self, distance: usize) {
