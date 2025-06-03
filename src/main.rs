@@ -5,7 +5,7 @@ use crate::{
     defer::defer,
     graphemes::{next_grapheme_boundary, prev_grapheme_boundary},
 };
-use camino::Utf8PathBuf;
+use camino::{Utf8Path, Utf8PathBuf};
 use clap::Parser as _;
 use crop::Rope;
 use crossterm::{
@@ -113,7 +113,8 @@ impl Editor {
         Self::default()
     }
 
-    fn open(path: Utf8PathBuf) -> anyhow::Result<Self> {
+    fn open(path: impl AsRef<Utf8Path>) -> anyhow::Result<Self> {
+        let path = path.as_ref().canonicalize_utf8()?;
         let string = fs::read_to_string(&path)?;
         let rope = Rope::from(string);
         Ok(Self {
