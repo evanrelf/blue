@@ -3,8 +3,10 @@ mod defer;
 use crate::defer::defer;
 use camino::Utf8PathBuf;
 use clap::Parser as _;
+use crop::Rope;
 use crossterm::event::{Event, KeyCode, KeyModifiers};
-use ratatui::{text::Text, widgets::Widget as _};
+use ratatui::prelude::*;
+use std::{fs, iter::zip};
 
 #[derive(clap::Parser)]
 struct Args {
@@ -12,14 +14,19 @@ struct Args {
 }
 
 fn main() -> anyhow::Result<()> {
-    let _args = Args::parse();
+    let args = Args::parse();
 
     let mut terminal = ratatui::init();
     let _guard = defer(|| ratatui::restore());
 
+    let editor = if let Some(path) = args.file {
+        Editor::open(path)?
+    } else {
+        Editor::new()
+    };
+
     loop {
-        terminal
-            .draw(|frame| Text::raw("Hello, world!").render(frame.area(), frame.buffer_mut()))?;
+        terminal.draw(|frame| render(&editor, frame.area(), frame.buffer_mut()))?;
 
         #[allow(clippy::single_match)]
         match crossterm::event::read()? {
@@ -30,5 +37,28 @@ fn main() -> anyhow::Result<()> {
             },
             _ => {}
         }
+    }
+}
+
+fn render(editor: &Editor, area: Rect, buffer: &mut Buffer) {
+    for (line, row) in zip(editor.text.lines(), area.rows()) {
+        Text::raw(line.to_string()).render(row, buffer);
+    }
+}
+
+#[derive(Default)]
+struct Editor {
+    text: Rope,
+}
+
+impl Editor {
+    fn new() -> Self {
+        Self::default()
+    }
+
+    fn open(path: Utf8PathBuf) -> anyhow::Result<Self> {
+        let string = fs::read_to_string(path)?;
+        let rope = Rope::from(string);
+        Ok(Self { text: rope })
     }
 }
