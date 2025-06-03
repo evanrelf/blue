@@ -11,14 +11,14 @@ use crossterm::{
     execute,
 };
 use ratatui::prelude::*;
-use std::{cmp::min, fs, io, iter::zip};
+use std::{cmp::min, fs, io, iter::zip, process::ExitCode};
 
 #[derive(clap::Parser)]
 struct Args {
     file: Option<Utf8PathBuf>,
 }
 
-fn main() -> anyhow::Result<()> {
+fn main() -> anyhow::Result<ExitCode> {
     let args = Args::parse();
 
     let mut terminal = ratatui::init();
@@ -37,20 +37,9 @@ fn main() -> anyhow::Result<()> {
 
     loop {
         terminal.draw(|frame| render(&editor, frame.area(), frame.buffer_mut()))?;
-
-        #[allow(clippy::single_match)]
-        match crossterm::event::read()? {
-            Event::Key(key) => match (key.modifiers, key.code) {
-                (m, KeyCode::Char('c')) if m == KeyModifiers::CONTROL => return Ok(()),
-                (m, KeyCode::Char('p')) if m == KeyModifiers::CONTROL => panic!(),
-                _ => {}
-            },
-            Event::Mouse(mouse) => match mouse.kind {
-                MouseEventKind::ScrollUp => editor.scroll_up(3),
-                MouseEventKind::ScrollDown => editor.scroll_down(3),
-                _ => {}
-            },
-            _ => {}
+        let event = crossterm::event::read()?;
+        if let Some(exit_code) = update(&mut editor, &event) {
+            return Ok(exit_code);
         }
     }
 }
@@ -62,6 +51,26 @@ fn render(editor: &Editor, area: Rect, buffer: &mut Buffer) {
     ) {
         Text::raw(line.to_string()).render(row, buffer);
     }
+}
+
+fn update(editor: &mut Editor, event: &Event) -> Option<ExitCode> {
+    let mut exit_code = None;
+    match event {
+        Event::Key(key) => match (key.modifiers, key.code) {
+            (m, KeyCode::Char('c')) if m == KeyModifiers::CONTROL => {
+                exit_code = Some(ExitCode::FAILURE);
+            }
+            (m, KeyCode::Char('p')) if m == KeyModifiers::CONTROL => panic!(),
+            _ => {}
+        },
+        Event::Mouse(mouse) => match mouse.kind {
+            MouseEventKind::ScrollUp => editor.scroll_up(3),
+            MouseEventKind::ScrollDown => editor.scroll_down(3),
+            _ => {}
+        },
+        _ => {}
+    }
+    exit_code
 }
 
 #[derive(Default)]
