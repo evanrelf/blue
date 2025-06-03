@@ -70,7 +70,13 @@ fn render_text(editor: &Editor, area: Rect, buffer: &mut Buffer) {
 }
 
 fn render_status_bar(editor: &Editor, area: Rect, buffer: &mut Buffer) {
-    Text::raw(format!("{}", editor.cursor)).render(area, buffer);
+    let path = match &editor.path {
+        None => "*scratch*",
+        Some(path) => path.as_str(),
+    };
+    let cursor = editor.cursor;
+    let status_bar = format!("{path} {cursor}");
+    Text::raw(status_bar).render(area, buffer);
 }
 
 fn update(editor: &mut Editor, event: &Event) {
@@ -95,6 +101,7 @@ fn update(editor: &mut Editor, event: &Event) {
 
 #[derive(Default)]
 struct Editor {
+    path: Option<Utf8PathBuf>,
     text: Rope,
     cursor: usize,
     vertical_scroll: usize,
@@ -107,9 +114,10 @@ impl Editor {
     }
 
     fn open(path: Utf8PathBuf) -> anyhow::Result<Self> {
-        let string = fs::read_to_string(path)?;
+        let string = fs::read_to_string(&path)?;
         let rope = Rope::from(string);
         Ok(Self {
+            path: Some(path),
             text: rope,
             ..Self::default()
         })
