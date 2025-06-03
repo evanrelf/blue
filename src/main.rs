@@ -45,7 +45,8 @@ fn main() -> anyhow::Result<ExitCode> {
         if matches!(event, Event::Resize(_, _)) {
             continue;
         }
-        if let Some(exit_code) = update(&mut editor, &event) {
+        update(&mut editor, &event);
+        if let Some(exit_code) = editor.exit_code {
             return Ok(exit_code);
         }
     }
@@ -70,14 +71,13 @@ fn render_cursor(editor: &Editor, area: Rect, buffer: &mut Buffer) {
     Text::raw(format!("{}", editor.cursor)).render(area, buffer);
 }
 
-fn update(editor: &mut Editor, event: &Event) -> Option<ExitCode> {
-    let mut exit_code = None;
+fn update(editor: &mut Editor, event: &Event) {
     match event {
         Event::Key(key) => match (key.modifiers, key.code) {
             (m, KeyCode::Char('h')) if m == KeyModifiers::NONE => editor.move_left(1),
             (m, KeyCode::Char('l')) if m == KeyModifiers::NONE => editor.move_right(1),
             (m, KeyCode::Char('c')) if m == KeyModifiers::CONTROL => {
-                exit_code = Some(ExitCode::FAILURE);
+                editor.exit_code = Some(ExitCode::FAILURE);
             }
             (m, KeyCode::Char('p')) if m == KeyModifiers::CONTROL => panic!(),
             _ => {}
@@ -89,7 +89,6 @@ fn update(editor: &mut Editor, event: &Event) -> Option<ExitCode> {
         },
         _ => {}
     }
-    exit_code
 }
 
 #[derive(Default)]
@@ -97,7 +96,7 @@ struct Editor {
     text: Rope,
     cursor: usize,
     vertical_scroll: usize,
-    // TODO: Move exit code into editor state
+    exit_code: Option<ExitCode>,
 }
 
 impl Editor {
