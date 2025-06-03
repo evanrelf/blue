@@ -115,6 +115,7 @@ impl Editor {
     }
 
     fn move_left(&mut self, count: usize) {
+        debug_assert!(self.text.is_grapheme_boundary(self.cursor));
         for _ in 0..count {
             match prev_grapheme_boundary(&self.text.byte_slice(..), self.cursor) {
                 Some(prev) if self.cursor != prev => self.cursor = prev,
@@ -124,6 +125,7 @@ impl Editor {
     }
 
     fn move_right(&mut self, count: usize) {
+        debug_assert!(self.text.is_grapheme_boundary(self.cursor));
         for _ in 0..count {
             match next_grapheme_boundary(&self.text.byte_slice(..), self.cursor) {
                 Some(next) if self.cursor != next => self.cursor = next,
@@ -133,10 +135,12 @@ impl Editor {
     }
 
     fn scroll_up(&mut self, distance: usize) {
+        debug_assert!(self.vertical_scroll < self.text.line_len());
         self.vertical_scroll = self.vertical_scroll.saturating_sub(distance);
     }
 
     fn scroll_down(&mut self, distance: usize) {
+        debug_assert!(self.vertical_scroll < self.text.line_len());
         self.vertical_scroll = min(
             self.text.line_len().saturating_sub(1),
             self.vertical_scroll + distance,
