@@ -1,10 +1,19 @@
 mod defer;
 
 use crate::defer::defer;
+use camino::Utf8PathBuf;
+use clap::Parser as _;
 use crossterm::event::{Event, KeyCode, KeyModifiers};
 use ratatui::{text::Text, widgets::Widget as _};
 
+#[derive(clap::Parser)]
+struct Args {
+    file: Option<Utf8PathBuf>,
+}
+
 fn main() -> anyhow::Result<()> {
+    let _args = Args::parse();
+
     let mut terminal = ratatui::init();
     let _guard = defer(|| ratatui::restore());
 
