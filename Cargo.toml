@@ -11,6 +11,8 @@ crop = { version = "0.4.3", features = ["graphemes"] }
 crossterm = "0.29.0"
 pathdiff = { version = "0.2.3", features = ["camino"] }
 ratatui = "0.29.0"
+unicode-segmentation = "1.12.0"
+unicode-width = "0.2.0"
 
 [lints]
 clippy.pedantic = { level = "warn", priority = -1 }

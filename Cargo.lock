@@ -87,6 +87,8 @@ dependencies = [
  "crossterm 0.29.0",
  "pathdiff",
  "ratatui",
+ "unicode-segmentation",
+ "unicode-width 0.2.0",
 ]
 
 [[package]]

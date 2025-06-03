@@ -1,9 +1,11 @@
 mod defer;
+mod display_width;
 mod graphemes;
 
 use crate::{
     defer::defer,
-    graphemes::{next_grapheme_boundary, prev_grapheme_boundary},
+    display_width::DisplayWidth as _,
+    graphemes::{floor_grapheme_boundary, next_grapheme_boundary, prev_grapheme_boundary},
 };
 use camino::{Utf8Path, Utf8PathBuf};
 use clap::Parser as _;
@@ -54,10 +56,17 @@ fn main() -> anyhow::Result<ExitCode> {
     }
 }
 
+const LIGHT_YELLOW: Color = Color::Rgb(0xff, 0xf5, 0xb1);
+
+const DARK_YELLOW: Color = Color::Rgb(0xff, 0xd3, 0x3d);
+
+const RED: Color = Color::Rgb(0xd7, 0x3a, 0x4a);
+
 fn render(editor: &Editor, area: Rect, buffer: &mut Buffer) {
     let [text, status_bar] =
         Layout::vertical([Constraint::Fill(1), Constraint::Length(1)]).areas(area);
     render_text(editor, text, buffer);
+    render_cursor(editor, text, buffer);
     render_status_bar(editor, status_bar, buffer);
 }
 
@@ -68,6 +77,70 @@ fn render_text(editor: &Editor, area: Rect, buffer: &mut Buffer) {
     ) {
         Text::raw(line.to_string()).render(row, buffer);
     }
+}
+
+fn render_cursor(editor: &Editor, area: Rect, buffer: &mut Buffer) {
+    let Some(area) = byte_offset_to_area(&editor.text, editor.cursor, editor.vertical_scroll, area)
+    else {
+        return;
+    };
+    buffer.set_style(area, Style::new().bg(DARK_YELLOW));
+}
+
+fn byte_offset_to_area(
+    rope: &Rope,
+    byte_offset: usize,
+    vertical_scroll: usize,
+    area: Rect,
+) -> Option<Rect> {
+    if byte_offset > rope.byte_len() {
+        return None;
+    }
+
+    let line_offset = rope.line_of_byte(byte_offset);
+
+    if vertical_scroll > line_offset {
+        return None;
+    }
+
+    let y = area.y + u16::try_from(line_offset - vertical_scroll).unwrap();
+
+    if !(area.top()..area.bottom()).contains(&y) {
+        return None;
+    }
+
+    let line_byte_offset = rope.byte_of_line(line_offset);
+
+    let byte_offset = floor_grapheme_boundary(&rope.byte_slice(..), byte_offset);
+
+    let prefix_width = rope
+        .byte_slice(line_byte_offset..byte_offset)
+        .display_width();
+
+    // TODO: When horizontal scroll is introduced, still return portion of rect that is visible.
+    // Even if it starts to the left of the area, it might be wide enough to peek into the viewport.
+    let x = area.x + u16::try_from(prefix_width).unwrap();
+
+    if !(area.left()..area.right()).contains(&x) {
+        return None;
+    }
+
+    let width = if rope.byte_len() == byte_offset {
+        // Cursor at EOF
+        1
+    } else if let Some(grapheme) = rope.byte_slice(byte_offset..).graphemes().next() {
+        u16::try_from(grapheme.as_ref().display_width()).unwrap()
+    } else {
+        // We're at EOF, but we already checked for that
+        unreachable!()
+    };
+
+    Some(Rect {
+        x,
+        y,
+        width,
+        height: 1,
+    })
 }
 
 fn render_status_bar(editor: &Editor, area: Rect, buffer: &mut Buffer) {
