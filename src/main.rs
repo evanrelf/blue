@@ -54,8 +54,10 @@ fn main() -> anyhow::Result<ExitCode> {
 }
 
 fn render(editor: &Editor, area: Rect, buffer: &mut Buffer) {
-    render_text(editor, area, buffer);
-    render_cursor(editor, area, buffer);
+    let [text, status_bar] =
+        Layout::vertical([Constraint::Fill(1), Constraint::Length(1)]).areas(area);
+    render_text(editor, text, buffer);
+    render_status_bar(editor, status_bar, buffer);
 }
 
 fn render_text(editor: &Editor, area: Rect, buffer: &mut Buffer) {
@@ -67,8 +69,7 @@ fn render_text(editor: &Editor, area: Rect, buffer: &mut Buffer) {
     }
 }
 
-fn render_cursor(editor: &Editor, area: Rect, buffer: &mut Buffer) {
-    // TODO: Actually render a colored rectangle
+fn render_status_bar(editor: &Editor, area: Rect, buffer: &mut Buffer) {
     Text::raw(format!("{}", editor.cursor)).render(area, buffer);
 }
 
