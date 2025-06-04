@@ -49,18 +49,14 @@ fn main() -> anyhow::Result<ExitCode> {
         if matches!(event, Event::Resize(_, _)) {
             continue;
         }
-        update(&mut editor, &event);
+        update(&mut editor, &event)?;
         if let Some(exit_code) = editor.exit_code {
             return Ok(exit_code);
         }
     }
 }
 
-const LIGHT_YELLOW: Color = Color::Rgb(0xff, 0xf5, 0xb1);
-
 const DARK_YELLOW: Color = Color::Rgb(0xff, 0xd3, 0x3d);
-
-const RED: Color = Color::Rgb(0xd7, 0x3a, 0x4a);
 
 fn render(editor: &Editor, area: Rect, buffer: &mut Buffer) {
     let [text, status_bar] =
@@ -150,14 +146,18 @@ fn render_status_bar(editor: &Editor, area: Rect, buffer: &mut Buffer) {
     };
     let path = match &editor.path {
         None => String::from("*scratch*"),
-        Some(path) => diff_utf8_paths(path, &editor.pwd).unwrap().to_string(),
+        Some(path) => match diff_utf8_paths(path, &editor.pwd) {
+            None => path.to_string(),
+            Some(path) => path.to_string(),
+        },
     };
+    let modified = if editor.modified { " [+]" } else { "" };
     let cursor = editor.cursor;
-    let status_bar = format!("{mode} {path} {cursor}");
+    let status_bar = format!("{mode} {path}{modified} {cursor}");
     Text::raw(status_bar).render(area, buffer);
 }
 
-fn update(editor: &mut Editor, event: &Event) {
+fn update(editor: &mut Editor, event: &Event) -> anyhow::Result<()> {
     match event {
         Event::Key(key) => match editor.mode {
             Mode::Normal => match (key.modifiers, key.code) {
@@ -165,10 +165,10 @@ fn update(editor: &mut Editor, event: &Event) {
                 (m, KeyCode::Char('l')) if m == KeyModifiers::NONE => editor.move_right(1),
                 (m, KeyCode::Char('d')) if m == KeyModifiers::NONE => editor.delete_after(),
                 (m, KeyCode::Char('i')) if m == KeyModifiers::NONE => editor.mode = Mode::Insert,
-                (m, KeyCode::Char('c')) if m == KeyModifiers::CONTROL => {
-                    editor.exit_code = Some(ExitCode::FAILURE);
+                (m, KeyCode::Char('s')) if m == KeyModifiers::CONTROL => editor.save()?,
+                (m, KeyCode::Char('c')) if m == KeyModifiers::CONTROL && !editor.modified => {
+                    editor.exit_code = Some(ExitCode::SUCCESS);
                 }
-                (m, KeyCode::Char('p')) if m == KeyModifiers::CONTROL => panic!(),
                 _ => {}
             },
             Mode::Insert => match (key.modifiers, key.code) {
@@ -180,6 +180,10 @@ fn update(editor: &mut Editor, event: &Event) {
                 }
                 (m, KeyCode::Backspace) if m == KeyModifiers::NONE => editor.delete_before(),
                 (m, KeyCode::Esc) if m == KeyModifiers::NONE => editor.mode = Mode::Normal,
+                (m, KeyCode::Char('s')) if m == KeyModifiers::CONTROL => editor.save()?,
+                (m, KeyCode::Char('c')) if m == KeyModifiers::CONTROL && !editor.modified => {
+                    editor.exit_code = Some(ExitCode::SUCCESS);
+                }
                 _ => {}
             },
         },
@@ -190,11 +194,13 @@ fn update(editor: &mut Editor, event: &Event) {
         },
         _ => {}
     }
+    Ok(())
 }
 
 struct Editor {
     pwd: Utf8PathBuf,
     path: Option<Utf8PathBuf>,
+    modified: bool,
     text: Rope,
     cursor: usize,
     vertical_scroll: usize,
@@ -208,12 +214,33 @@ impl Editor {
     }
 
     fn open(path: impl AsRef<Utf8Path>) -> anyhow::Result<Self> {
-        let path = path.as_ref().canonicalize_utf8()?;
-        let string = fs::read_to_string(&path)?;
-        let rope = Rope::from(string);
+        let exists = path.as_ref().try_exists()?;
+        let path = if exists {
+            path.as_ref().canonicalize_utf8()?
+        } else {
+            path.as_ref().to_path_buf()
+        };
+        let rope = if exists {
+            let string = fs::read_to_string(&path)?;
+            Rope::from(string)
+        } else {
+            Rope::new()
+        };
         let mut editor = Self::try_from(rope)?;
         editor.path = Some(path);
         Ok(editor)
+    }
+
+    fn save(&mut self) -> anyhow::Result<()> {
+        if !self.modified {
+            return Ok(());
+        }
+        if let Some(path) = &self.path {
+            let bytes = self.text.bytes().collect::<Vec<_>>();
+            fs::write(path, bytes)?;
+            self.modified = false;
+        }
+        Ok(())
     }
 
     fn move_left(&mut self, count: usize) {
@@ -252,6 +279,7 @@ impl Editor {
     fn insert(&mut self, text: &str) {
         self.text.insert(self.cursor, text);
         self.cursor += text.len();
+        self.modified = true;
     }
 
     fn delete_before(&mut self) {
@@ -260,6 +288,7 @@ impl Editor {
             let end = self.cursor;
             self.text.delete(start..end);
             self.cursor = start;
+            self.modified = true;
         }
     }
 
@@ -268,6 +297,7 @@ impl Editor {
             let start = self.cursor;
             let end = start + grapheme.len();
             self.text.delete(start..end);
+            self.modified = true;
         }
     }
 }
@@ -278,6 +308,7 @@ impl TryFrom<Rope> for Editor {
         Ok(Self {
             pwd: Utf8PathBuf::try_from(env::current_dir()?)?,
             path: None,
+            modified: false,
             text: rope,
             cursor: 0,
             vertical_scroll: 0,
