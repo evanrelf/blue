@@ -158,6 +158,7 @@ fn update(editor: &mut Editor, event: &Event) {
         Event::Key(key) => match (key.modifiers, key.code) {
             (m, KeyCode::Char('h')) if m == KeyModifiers::NONE => editor.move_left(1),
             (m, KeyCode::Char('l')) if m == KeyModifiers::NONE => editor.move_right(1),
+            (m, KeyCode::Char('x')) if m == KeyModifiers::NONE => editor.insert("x"),
             (m, KeyCode::Backspace) if m == KeyModifiers::NONE => editor.delete_before(),
             (m, KeyCode::Char('d')) if m == KeyModifiers::NONE => editor.delete_after(),
             (m, KeyCode::Char('c')) if m == KeyModifiers::CONTROL => {
@@ -229,6 +230,11 @@ impl Editor {
             self.text.line_len().saturating_sub(1),
             self.vertical_scroll + distance,
         );
+    }
+
+    fn insert(&mut self, text: &str) {
+        self.text.insert(self.cursor, text);
+        self.cursor += text.len();
     }
 
     fn delete_before(&mut self) {
