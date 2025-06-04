@@ -144,28 +144,44 @@ fn byte_offset_to_area(
 }
 
 fn render_status_bar(editor: &Editor, area: Rect, buffer: &mut Buffer) {
+    let mode = match editor.mode {
+        Mode::Normal => "n",
+        Mode::Insert => "i",
+    };
     let path = match &editor.path {
         None => String::from("*scratch*"),
         Some(path) => diff_utf8_paths(path, &editor.pwd).unwrap().to_string(),
     };
     let cursor = editor.cursor;
-    let status_bar = format!("{path} {cursor}");
+    let status_bar = format!("{mode} {path} {cursor}");
     Text::raw(status_bar).render(area, buffer);
 }
 
 fn update(editor: &mut Editor, event: &Event) {
     match event {
-        Event::Key(key) => match (key.modifiers, key.code) {
-            (m, KeyCode::Char('h')) if m == KeyModifiers::NONE => editor.move_left(1),
-            (m, KeyCode::Char('l')) if m == KeyModifiers::NONE => editor.move_right(1),
-            (m, KeyCode::Char('x')) if m == KeyModifiers::NONE => editor.insert("x"),
-            (m, KeyCode::Backspace) if m == KeyModifiers::NONE => editor.delete_before(),
-            (m, KeyCode::Char('d')) if m == KeyModifiers::NONE => editor.delete_after(),
-            (m, KeyCode::Char('c')) if m == KeyModifiers::CONTROL => {
-                editor.exit_code = Some(ExitCode::FAILURE);
-            }
-            (m, KeyCode::Char('p')) if m == KeyModifiers::CONTROL => panic!(),
-            _ => {}
+        Event::Key(key) => match editor.mode {
+            Mode::Normal => match (key.modifiers, key.code) {
+                (m, KeyCode::Char('h')) if m == KeyModifiers::NONE => editor.move_left(1),
+                (m, KeyCode::Char('l')) if m == KeyModifiers::NONE => editor.move_right(1),
+                (m, KeyCode::Char('d')) if m == KeyModifiers::NONE => editor.delete_after(),
+                (m, KeyCode::Char('i')) if m == KeyModifiers::NONE => editor.mode = Mode::Insert,
+                (m, KeyCode::Char('c')) if m == KeyModifiers::CONTROL => {
+                    editor.exit_code = Some(ExitCode::FAILURE);
+                }
+                (m, KeyCode::Char('p')) if m == KeyModifiers::CONTROL => panic!(),
+                _ => {}
+            },
+            Mode::Insert => match (key.modifiers, key.code) {
+                (m, KeyCode::Char(char)) if m == KeyModifiers::NONE => {
+                    editor.insert(&char.to_string());
+                }
+                (m, KeyCode::Char(char)) if m == KeyModifiers::SHIFT => {
+                    editor.insert(&char.to_string());
+                }
+                (m, KeyCode::Backspace) if m == KeyModifiers::NONE => editor.delete_before(),
+                (m, KeyCode::Esc) if m == KeyModifiers::NONE => editor.mode = Mode::Normal,
+                _ => {}
+            },
         },
         Event::Mouse(mouse) => match mouse.kind {
             MouseEventKind::ScrollUp => editor.scroll_up(3),
@@ -182,6 +198,7 @@ struct Editor {
     text: Rope,
     cursor: usize,
     vertical_scroll: usize,
+    mode: Mode,
     exit_code: Option<ExitCode>,
 }
 
@@ -264,7 +281,13 @@ impl TryFrom<Rope> for Editor {
             text: rope,
             cursor: 0,
             vertical_scroll: 0,
+            mode: Mode::Normal,
             exit_code: None,
         })
     }
+}
+
+enum Mode {
+    Normal,
+    Insert,
 }
