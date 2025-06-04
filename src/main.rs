@@ -169,6 +169,9 @@ fn update(editor: &mut Editor, event: &Event) -> anyhow::Result<()> {
                 (m, KeyCode::Char('c')) if m == KeyModifiers::CONTROL && !editor.modified => {
                     editor.exit_code = Some(ExitCode::SUCCESS);
                 }
+                (m, KeyCode::Char('c')) if m == KeyModifiers::SHIFT | KeyModifiers::CONTROL => {
+                    editor.exit_code = Some(ExitCode::FAILURE);
+                }
                 _ => {}
             },
             Mode::Insert => match (key.modifiers, key.code) {
@@ -183,6 +186,9 @@ fn update(editor: &mut Editor, event: &Event) -> anyhow::Result<()> {
                 (m, KeyCode::Char('s')) if m == KeyModifiers::CONTROL => editor.save()?,
                 (m, KeyCode::Char('c')) if m == KeyModifiers::CONTROL && !editor.modified => {
                     editor.exit_code = Some(ExitCode::SUCCESS);
+                }
+                (m, KeyCode::Char('c')) if m == KeyModifiers::SHIFT | KeyModifiers::CONTROL => {
+                    editor.exit_code = Some(ExitCode::FAILURE);
                 }
                 _ => {}
             },
