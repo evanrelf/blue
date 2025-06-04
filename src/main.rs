@@ -59,11 +59,29 @@ fn main() -> anyhow::Result<ExitCode> {
 const DARK_YELLOW: Color = Color::Rgb(0xff, 0xd3, 0x3d);
 
 fn render(editor: &Editor, area: Rect, buffer: &mut Buffer) {
-    let [text, status_bar] =
-        Layout::vertical([Constraint::Fill(1), Constraint::Length(1)]).areas(area);
+    let [status_bar, text] =
+        Layout::vertical([Constraint::Length(1), Constraint::Fill(1)]).areas(area);
+    render_status_bar(editor, status_bar, buffer);
     render_text(editor, text, buffer);
     render_cursor(editor, text, buffer);
-    render_status_bar(editor, status_bar, buffer);
+}
+
+fn render_status_bar(editor: &Editor, area: Rect, buffer: &mut Buffer) {
+    let mode = match editor.mode {
+        Mode::Normal => "n",
+        Mode::Insert => "i",
+    };
+    let path = match &editor.path {
+        None => String::from("*scratch*"),
+        Some(path) => match diff_utf8_paths(path, &editor.pwd) {
+            None => path.to_string(),
+            Some(path) => path.to_string(),
+        },
+    };
+    let modified = if editor.modified { " [+]" } else { "" };
+    let cursor = editor.cursor;
+    let status_bar = format!("{mode} {path}{modified} {cursor}");
+    Text::raw(status_bar).underlined().render(area, buffer);
 }
 
 fn render_text(editor: &Editor, area: Rect, buffer: &mut Buffer) {
@@ -137,24 +155,6 @@ fn byte_offset_to_area(
         width,
         height: 1,
     })
-}
-
-fn render_status_bar(editor: &Editor, area: Rect, buffer: &mut Buffer) {
-    let mode = match editor.mode {
-        Mode::Normal => "n",
-        Mode::Insert => "i",
-    };
-    let path = match &editor.path {
-        None => String::from("*scratch*"),
-        Some(path) => match diff_utf8_paths(path, &editor.pwd) {
-            None => path.to_string(),
-            Some(path) => path.to_string(),
-        },
-    };
-    let modified = if editor.modified { " [+]" } else { "" };
-    let cursor = editor.cursor;
-    let status_bar = format!("{mode} {path}{modified} {cursor}");
-    Text::raw(status_bar).render(area, buffer);
 }
 
 fn update(editor: &mut Editor, event: &Event) -> anyhow::Result<()> {
