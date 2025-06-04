@@ -158,6 +158,8 @@ fn update(editor: &mut Editor, event: &Event) {
         Event::Key(key) => match (key.modifiers, key.code) {
             (m, KeyCode::Char('h')) if m == KeyModifiers::NONE => editor.move_left(1),
             (m, KeyCode::Char('l')) if m == KeyModifiers::NONE => editor.move_right(1),
+            (m, KeyCode::Backspace) if m == KeyModifiers::NONE => editor.delete_before(),
+            (m, KeyCode::Char('d')) if m == KeyModifiers::NONE => editor.delete_after(),
             (m, KeyCode::Char('c')) if m == KeyModifiers::CONTROL => {
                 editor.exit_code = Some(ExitCode::FAILURE);
             }
@@ -227,6 +229,23 @@ impl Editor {
             self.text.line_len().saturating_sub(1),
             self.vertical_scroll + distance,
         );
+    }
+
+    fn delete_before(&mut self) {
+        if let Some(grapheme) = self.text.byte_slice(..self.cursor).graphemes().next_back() {
+            let start = self.cursor - grapheme.len();
+            let end = self.cursor;
+            self.text.delete(start..end);
+            self.cursor = start;
+        }
+    }
+
+    fn delete_after(&mut self) {
+        if let Some(grapheme) = self.text.byte_slice(self.cursor..).graphemes().next() {
+            let start = self.cursor;
+            let end = start + grapheme.len();
+            self.text.delete(start..end);
+        }
     }
 }
 
