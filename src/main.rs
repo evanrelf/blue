@@ -12,7 +12,8 @@ use clap::Parser as _;
 use crop::Rope;
 use crossterm::{
     event::{
-        DisableMouseCapture, EnableMouseCapture, Event, KeyCode, KeyModifiers, MouseEventKind,
+        DisableMouseCapture, EnableMouseCapture, Event, KeyCode, KeyModifiers, MouseButton,
+        MouseEventKind,
     },
     execute,
     terminal::{EnterAlternateScreen, LeaveAlternateScreen},
@@ -43,13 +44,18 @@ fn main() -> anyhow::Result<ExitCode> {
         Editor::new()?
     };
 
+    let mut area = Rect::default();
+
     loop {
-        terminal.draw(|frame| render(&editor, frame.area(), frame.buffer_mut()))?;
+        terminal.draw(|frame| {
+            area = frame.area();
+            render(&editor, area, frame.buffer_mut());
+        })?;
         let event = crossterm::event::read()?;
         if matches!(event, Event::Resize(_, _)) {
             continue;
         }
-        update(&mut editor, &event)?;
+        update(&mut editor, area, &event)?;
         if let Some(exit_code) = editor.exit_code {
             return Ok(exit_code);
         }
@@ -58,12 +64,24 @@ fn main() -> anyhow::Result<ExitCode> {
 
 const DARK_YELLOW: Color = Color::Rgb(0xff, 0xd3, 0x3d);
 
+struct Areas {
+    status_bar: Rect,
+    text: Rect,
+}
+
+impl Areas {
+    fn new(area: Rect) -> Self {
+        let [status_bar, text] =
+            Layout::vertical([Constraint::Length(1), Constraint::Fill(1)]).areas(area);
+        Self { status_bar, text }
+    }
+}
+
 fn render(editor: &Editor, area: Rect, buffer: &mut Buffer) {
-    let [status_bar, text] =
-        Layout::vertical([Constraint::Length(1), Constraint::Fill(1)]).areas(area);
-    render_status_bar(editor, status_bar, buffer);
-    render_text(editor, text, buffer);
-    render_cursor(editor, text, buffer);
+    let areas = Areas::new(area);
+    render_status_bar(editor, areas.status_bar, buffer);
+    render_text(editor, areas.text, buffer);
+    render_cursor(editor, areas.text, buffer);
 }
 
 fn render_status_bar(editor: &Editor, area: Rect, buffer: &mut Buffer) {
@@ -94,7 +112,7 @@ fn render_text(editor: &Editor, area: Rect, buffer: &mut Buffer) {
 }
 
 fn render_cursor(editor: &Editor, area: Rect, buffer: &mut Buffer) {
-    let Some(area) = byte_offset_to_area(&editor.text, editor.cursor, editor.vertical_scroll, area)
+    let Some(area) = byte_offset_to_area(&editor.text, editor.vertical_scroll, area, editor.cursor)
     else {
         return;
     };
@@ -103,9 +121,9 @@ fn render_cursor(editor: &Editor, area: Rect, buffer: &mut Buffer) {
 
 fn byte_offset_to_area(
     rope: &Rope,
-    byte_offset: usize,
     vertical_scroll: usize,
     area: Rect,
+    byte_offset: usize,
 ) -> Option<Rect> {
     if byte_offset > rope.byte_len() {
         return None;
@@ -157,7 +175,34 @@ fn byte_offset_to_area(
     })
 }
 
-fn update(editor: &mut Editor, event: &Event) -> anyhow::Result<()> {
+fn position_to_byte_offset(
+    rope: &Rope,
+    vertical_scroll: usize,
+    area: Rect,
+    position: Position,
+) -> Option<usize> {
+    if !area.contains(position) {
+        return None;
+    }
+
+    let column = usize::from(position.x - area.x);
+    let row = usize::from(position.y - area.y) + vertical_scroll;
+
+    if row >= rope.line_len() {
+        return Some(rope.byte_len());
+    }
+
+    // TODO: Handle multi-byte and wide graphemes
+
+    let line_length = rope.line(row).byte_len();
+
+    let byte_offset = rope.byte_of_line(row) + min(line_length, column);
+
+    Some(byte_offset)
+}
+
+fn update(editor: &mut Editor, area: Rect, event: &Event) -> anyhow::Result<()> {
+    let areas = Areas::new(area);
     match event {
         Event::Key(key) => match editor.mode {
             Mode::Normal => match (key.modifiers, key.code) {
@@ -196,6 +241,16 @@ fn update(editor: &mut Editor, event: &Event) -> anyhow::Result<()> {
         Event::Mouse(mouse) => match mouse.kind {
             MouseEventKind::ScrollUp => editor.scroll_up(3),
             MouseEventKind::ScrollDown => editor.scroll_down(3),
+            MouseEventKind::Down(MouseButton::Left) => {
+                if let Some(cursor) = position_to_byte_offset(
+                    &editor.text,
+                    editor.vertical_scroll,
+                    areas.text,
+                    Position::new(mouse.column, mouse.row),
+                ) {
+                    editor.cursor = cursor;
+                }
+            }
             _ => {}
         },
         _ => {}
