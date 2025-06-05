@@ -62,6 +62,8 @@ fn main() -> anyhow::Result<ExitCode> {
     }
 }
 
+const LIGHT_YELLOW: Color = Color::Rgb(0xff, 0xf5, 0xb1);
+
 const DARK_YELLOW: Color = Color::Rgb(0xff, 0xd3, 0x3d);
 
 struct Areas {
@@ -97,8 +99,9 @@ fn render_status_bar(editor: &Editor, area: Rect, buffer: &mut Buffer) {
         },
     };
     let modified = if editor.modified { " [+]" } else { "" };
-    let cursor = editor.cursor;
-    let status_bar = format!("{mode} {path}{modified} {cursor}");
+    let anchor = editor.anchor;
+    let head = editor.head;
+    let status_bar = format!("{mode} {path}{modified} {anchor}-{head}");
     Text::raw(status_bar).underlined().render(area, buffer);
 }
 
@@ -112,11 +115,17 @@ fn render_text(editor: &Editor, area: Rect, buffer: &mut Buffer) {
 }
 
 fn render_cursor(editor: &Editor, area: Rect, buffer: &mut Buffer) {
-    let Some(area) = byte_offset_to_area(&editor.text, editor.vertical_scroll, area, editor.cursor)
-    else {
-        return;
-    };
-    buffer.set_style(area, Style::new().bg(DARK_YELLOW));
+    // anchor
+    if let Some(area) =
+        byte_offset_to_area(&editor.text, editor.vertical_scroll, area, editor.anchor)
+    {
+        buffer.set_style(area, Style::new().bg(LIGHT_YELLOW));
+    }
+    // head
+    if let Some(area) = byte_offset_to_area(&editor.text, editor.vertical_scroll, area, editor.head)
+    {
+        buffer.set_style(area, Style::new().bg(DARK_YELLOW));
+    }
 }
 
 fn byte_offset_to_area(
@@ -242,13 +251,14 @@ fn update(editor: &mut Editor, area: Rect, event: &Event) -> anyhow::Result<()> 
             MouseEventKind::ScrollUp => editor.scroll_up(3),
             MouseEventKind::ScrollDown => editor.scroll_down(3),
             MouseEventKind::Down(MouseButton::Left) => {
-                if let Some(cursor) = position_to_byte_offset(
+                if let Some(byte_offset) = position_to_byte_offset(
                     &editor.text,
                     editor.vertical_scroll,
                     areas.text,
                     Position::new(mouse.column, mouse.row),
                 ) {
-                    editor.cursor = cursor;
+                    editor.anchor = byte_offset;
+                    editor.head = byte_offset;
                 }
             }
             _ => {}
@@ -263,7 +273,8 @@ struct Editor {
     path: Option<Utf8PathBuf>,
     modified: bool,
     text: Rope,
-    cursor: usize,
+    anchor: usize,
+    head: usize,
     vertical_scroll: usize,
     mode: Mode,
     exit_code: Option<ExitCode>,
@@ -305,20 +316,20 @@ impl Editor {
     }
 
     fn move_left(&mut self, count: usize) {
-        debug_assert!(self.text.is_grapheme_boundary(self.cursor));
+        debug_assert!(self.text.is_grapheme_boundary(self.head));
         for _ in 0..count {
-            match prev_grapheme_boundary(&self.text.byte_slice(..), self.cursor) {
-                Some(prev) if self.cursor != prev => self.cursor = prev,
+            match prev_grapheme_boundary(&self.text.byte_slice(..), self.head) {
+                Some(prev) if self.head != prev => self.head = prev,
                 _ => break,
             }
         }
     }
 
     fn move_right(&mut self, count: usize) {
-        debug_assert!(self.text.is_grapheme_boundary(self.cursor));
+        debug_assert!(self.text.is_grapheme_boundary(self.head));
         for _ in 0..count {
-            match next_grapheme_boundary(&self.text.byte_slice(..), self.cursor) {
-                Some(next) if self.cursor != next => self.cursor = next,
+            match next_grapheme_boundary(&self.text.byte_slice(..), self.head) {
+                Some(next) if self.head != next => self.head = next,
                 _ => break,
             }
         }
@@ -338,24 +349,24 @@ impl Editor {
     }
 
     fn insert(&mut self, text: &str) {
-        self.text.insert(self.cursor, text);
-        self.cursor += text.len();
+        self.text.insert(self.head, text);
+        self.head += text.len();
         self.modified = true;
     }
 
     fn delete_before(&mut self) {
-        if let Some(grapheme) = self.text.byte_slice(..self.cursor).graphemes().next_back() {
-            let start = self.cursor - grapheme.len();
-            let end = self.cursor;
+        if let Some(grapheme) = self.text.byte_slice(..self.head).graphemes().next_back() {
+            let start = self.head - grapheme.len();
+            let end = self.head;
             self.text.delete(start..end);
-            self.cursor = start;
+            self.head = start;
             self.modified = true;
         }
     }
 
     fn delete_after(&mut self) {
-        if let Some(grapheme) = self.text.byte_slice(self.cursor..).graphemes().next() {
-            let start = self.cursor;
+        if let Some(grapheme) = self.text.byte_slice(self.head..).graphemes().next() {
+            let start = self.head;
             let end = start + grapheme.len();
             self.text.delete(start..end);
             self.modified = true;
@@ -371,7 +382,8 @@ impl TryFrom<Rope> for Editor {
             path: None,
             modified: false,
             text: rope,
-            cursor: 0,
+            anchor: 0,
+            head: 0,
             vertical_scroll: 0,
             mode: Mode::Normal,
             exit_code: None,
