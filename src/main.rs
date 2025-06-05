@@ -217,6 +217,8 @@ fn update(editor: &mut Editor, area: Rect, event: &Event) -> anyhow::Result<()> 
             Mode::Normal => match (key.modifiers, key.code) {
                 (m, KeyCode::Char('h')) if m == KeyModifiers::NONE => editor.move_left(1),
                 (m, KeyCode::Char('l')) if m == KeyModifiers::NONE => editor.move_right(1),
+                (m, KeyCode::Char('h' | 'H')) if m == KeyModifiers::SHIFT => editor.extend_left(1),
+                (m, KeyCode::Char('l' | 'L')) if m == KeyModifiers::SHIFT => editor.extend_right(1),
                 (m, KeyCode::Char('d')) if m == KeyModifiers::NONE => editor.delete_after(),
                 (m, KeyCode::Char('i')) if m == KeyModifiers::NONE => editor.mode = Mode::Insert,
                 (m, KeyCode::Char('s')) if m == KeyModifiers::CONTROL => editor.save()?,
@@ -315,7 +317,7 @@ impl Editor {
         Ok(())
     }
 
-    fn move_left(&mut self, count: usize) {
+    fn extend_left(&mut self, count: usize) {
         debug_assert!(self.text.is_grapheme_boundary(self.head));
         for _ in 0..count {
             match prev_grapheme_boundary(&self.text.byte_slice(..), self.head) {
@@ -325,7 +327,7 @@ impl Editor {
         }
     }
 
-    fn move_right(&mut self, count: usize) {
+    fn extend_right(&mut self, count: usize) {
         debug_assert!(self.text.is_grapheme_boundary(self.head));
         for _ in 0..count {
             match next_grapheme_boundary(&self.text.byte_slice(..), self.head) {
@@ -333,6 +335,16 @@ impl Editor {
                 _ => break,
             }
         }
+    }
+
+    fn move_left(&mut self, count: usize) {
+        self.extend_left(count);
+        self.anchor = self.head;
+    }
+
+    fn move_right(&mut self, count: usize) {
+        self.extend_right(count);
+        self.anchor = self.head;
     }
 
     fn scroll_up(&mut self, distance: usize) {
