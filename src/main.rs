@@ -12,15 +12,16 @@ use clap::Parser as _;
 use crop::Rope;
 use crossterm::{
     event::{
-        DisableMouseCapture, EnableMouseCapture, Event, KeyCode, KeyModifiers, MouseButton,
-        MouseEventKind,
+        DisableMouseCapture, EnableMouseCapture, Event, KeyCode, KeyModifiers,
+        KeyboardEnhancementFlags, MouseButton, MouseEventKind, PopKeyboardEnhancementFlags,
+        PushKeyboardEnhancementFlags,
     },
     execute,
     terminal::{EnterAlternateScreen, LeaveAlternateScreen},
 };
 use pathdiff::diff_utf8_paths;
 use ratatui::prelude::*;
-use std::{cmp::min, env, fs, io, iter::zip, process::ExitCode};
+use std::{cmp::min, env, fs, io, iter::zip, mem, process::ExitCode};
 
 #[derive(clap::Parser)]
 struct Args {
@@ -31,10 +32,20 @@ fn main() -> anyhow::Result<ExitCode> {
     let args = Args::parse();
 
     let mut terminal = ratatui::init();
-    execute!(io::stdout(), EnterAlternateScreen, EnableMouseCapture)?;
+    execute!(
+        io::stdout(),
+        EnterAlternateScreen,
+        PushKeyboardEnhancementFlags(KeyboardEnhancementFlags::DISAMBIGUATE_ESCAPE_CODES),
+        EnableMouseCapture,
+    )?;
 
     let _guard = defer(|| {
-        let _ = execute!(io::stdout(), LeaveAlternateScreen, DisableMouseCapture);
+        let _ = execute!(
+            io::stdout(),
+            LeaveAlternateScreen,
+            PopKeyboardEnhancementFlags,
+            DisableMouseCapture,
+        );
         ratatui::restore();
     });
 
@@ -220,6 +231,10 @@ fn update(editor: &mut Editor, area: Rect, event: &Event) -> anyhow::Result<()> 
                 (m, KeyCode::Char('h' | 'H')) if m == KeyModifiers::SHIFT => editor.extend_left(1),
                 (m, KeyCode::Char('l' | 'L')) if m == KeyModifiers::SHIFT => editor.extend_right(1),
                 (m, KeyCode::Char(';')) if m == KeyModifiers::NONE => editor.reduce(),
+                (m, KeyCode::Char(';')) if m == KeyModifiers::ALT => editor.flip(),
+                (m, KeyCode::Char(';')) if m == KeyModifiers::SHIFT | KeyModifiers::ALT => {
+                    editor.flip_forward();
+                }
                 (m, KeyCode::Char('d')) if m == KeyModifiers::NONE => editor.delete_after(),
                 (m, KeyCode::Char('i')) if m == KeyModifiers::NONE => editor.mode = Mode::Insert,
                 (m, KeyCode::Char('s')) if m == KeyModifiers::CONTROL => editor.save()?,
@@ -356,6 +371,16 @@ impl Editor {
     fn move_right(&mut self, count: usize) {
         self.extend_right(count);
         self.reduce();
+    }
+
+    fn flip(&mut self) {
+        mem::swap(&mut self.anchor, &mut self.head);
+    }
+
+    fn flip_forward(&mut self) {
+        if self.anchor > self.head {
+            self.flip();
+        }
     }
 
     fn reduce(&mut self) {
