@@ -263,6 +263,16 @@ fn update(editor: &mut Editor, area: Rect, event: &Event) -> anyhow::Result<()> 
                     editor.head = byte_offset;
                 }
             }
+            MouseEventKind::Drag(MouseButton::Left) => {
+                if let Some(byte_offset) = position_to_byte_offset(
+                    &editor.text,
+                    editor.vertical_scroll,
+                    areas.text,
+                    Position::new(mouse.column, mouse.row),
+                ) {
+                    editor.head = byte_offset;
+                }
+            }
             _ => {}
         },
         _ => {}
