@@ -21,7 +21,13 @@ use crossterm::{
 };
 use pathdiff::diff_utf8_paths;
 use ratatui::prelude::*;
-use std::{cmp::min, env, fs, io, iter::zip, mem, process::ExitCode};
+use std::{
+    cmp::{max, min},
+    env, fs, io,
+    iter::zip,
+    mem,
+    process::ExitCode,
+};
 
 #[derive(clap::Parser)]
 struct Args {
@@ -235,7 +241,7 @@ fn update(editor: &mut Editor, area: Rect, event: &Event) -> anyhow::Result<()> 
                 (m, KeyCode::Char(';')) if m == KeyModifiers::SHIFT | KeyModifiers::ALT => {
                     editor.flip_forward();
                 }
-                (m, KeyCode::Char('d')) if m == KeyModifiers::NONE => editor.delete_after(),
+                (m, KeyCode::Char('d')) if m == KeyModifiers::NONE => editor.delete(),
                 (m, KeyCode::Char('i')) if m == KeyModifiers::NONE => editor.mode = Mode::Insert,
                 (m, KeyCode::Char('s')) if m == KeyModifiers::CONTROL => editor.save()?,
                 (m, KeyCode::Char('c')) if m == KeyModifiers::CONTROL && !editor.modified => {
@@ -413,7 +419,18 @@ impl Editor {
             self.text.delete(start..end);
             self.head = start;
             self.modified = true;
+            debug_assert!(self.text.is_grapheme_boundary(self.anchor));
+            debug_assert!(self.text.is_grapheme_boundary(self.head));
         }
+    }
+
+    fn delete(&mut self) {
+        let start = min(self.anchor, self.head);
+        let end = max(self.anchor, self.head);
+        self.text.delete(start..end);
+        self.head = self.anchor;
+        debug_assert!(self.text.is_grapheme_boundary(self.anchor));
+        debug_assert!(self.text.is_grapheme_boundary(self.head));
     }
 
     fn delete_after(&mut self) {
@@ -422,6 +439,8 @@ impl Editor {
             let end = start + grapheme.len();
             self.text.delete(start..end);
             self.modified = true;
+            debug_assert!(self.text.is_grapheme_boundary(self.anchor));
+            debug_assert!(self.text.is_grapheme_boundary(self.head));
         }
     }
 }
