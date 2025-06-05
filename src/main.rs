@@ -219,6 +219,7 @@ fn update(editor: &mut Editor, area: Rect, event: &Event) -> anyhow::Result<()> 
                 (m, KeyCode::Char('l')) if m == KeyModifiers::NONE => editor.move_right(1),
                 (m, KeyCode::Char('h' | 'H')) if m == KeyModifiers::SHIFT => editor.extend_left(1),
                 (m, KeyCode::Char('l' | 'L')) if m == KeyModifiers::SHIFT => editor.extend_right(1),
+                (m, KeyCode::Char(';')) if m == KeyModifiers::NONE => editor.reduce(),
                 (m, KeyCode::Char('d')) if m == KeyModifiers::NONE => editor.delete_after(),
                 (m, KeyCode::Char('i')) if m == KeyModifiers::NONE => editor.mode = Mode::Insert,
                 (m, KeyCode::Char('s')) if m == KeyModifiers::CONTROL => editor.save()?,
@@ -349,11 +350,15 @@ impl Editor {
 
     fn move_left(&mut self, count: usize) {
         self.extend_left(count);
-        self.anchor = self.head;
+        self.reduce();
     }
 
     fn move_right(&mut self, count: usize) {
         self.extend_right(count);
+        self.reduce();
+    }
+
+    fn reduce(&mut self) {
         self.anchor = self.head;
     }
 
