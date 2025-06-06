@@ -58,7 +58,7 @@ fn main() -> anyhow::Result<ExitCode> {
 
     let mut area = Rect::default();
 
-    loop {
+    let exit_code = loop {
         terminal.draw(|frame| {
             area = frame.area();
             render(&editor, area, frame.buffer_mut());
@@ -69,9 +69,13 @@ fn main() -> anyhow::Result<ExitCode> {
         }
         update(&mut editor, area, &event)?;
         if let Some(exit_code) = editor.exit_code {
-            return Ok(exit_code);
+            break exit_code;
         }
-    }
+    };
+
+    ratatui::restore();
+
+    Ok(exit_code)
 }
 
 const LIGHT_YELLOW: Color = Color::Rgb(0xff, 0xf5, 0xb1);
