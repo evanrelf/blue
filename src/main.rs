@@ -95,7 +95,7 @@ fn render(editor: &Editor, area: Rect, buffer: &mut Buffer) {
     let areas = Areas::new(area);
     render_status_bar(editor, areas.status_bar, buffer);
     render_text(editor, areas.text, buffer);
-    render_cursor(editor, areas.text, buffer);
+    render_selection(editor, areas.text, buffer);
 }
 
 fn render_status_bar(editor: &Editor, area: Rect, buffer: &mut Buffer) {
@@ -126,14 +126,22 @@ fn render_text(editor: &Editor, area: Rect, buffer: &mut Buffer) {
     }
 }
 
-fn render_cursor(editor: &Editor, area: Rect, buffer: &mut Buffer) {
-    // anchor
-    if let Some(area) =
-        byte_offset_to_area(&editor.text, editor.vertical_scroll, area, editor.anchor)
-    {
-        buffer.set_style(area, Style::new().bg(LIGHT_YELLOW));
+fn render_selection(editor: &Editor, area: Rect, buffer: &mut Buffer) {
+    if editor.anchor != editor.head {
+        let start = min(editor.anchor, editor.head);
+        let end = max(editor.anchor, editor.head);
+        let end = next_grapheme_boundary(&editor.text.byte_slice(..), end).unwrap_or(end);
+        let selection_slice = editor.text.byte_slice(start..end);
+        let mut current_offset = start;
+        for grapheme in selection_slice.graphemes() {
+            if let Some(grapheme_area) =
+                byte_offset_to_area(&editor.text, editor.vertical_scroll, area, current_offset)
+            {
+                buffer.set_style(grapheme_area, Style::new().bg(LIGHT_YELLOW));
+            }
+            current_offset += grapheme.len();
+        }
     }
-    // head
     if let Some(area) = byte_offset_to_area(&editor.text, editor.vertical_scroll, area, editor.head)
     {
         buffer.set_style(area, Style::new().bg(DARK_YELLOW));
