@@ -206,18 +206,24 @@ fn position_to_byte_offset(
         return None;
     }
 
-    let column = usize::from(position.x - area.x);
+    let target_column = usize::from(position.x - area.x);
     let row = usize::from(position.y - area.y) + vertical_scroll;
 
     if row >= rope.line_len() {
         return Some(rope.byte_len());
     }
 
-    // TODO: Handle multi-byte and wide graphemes
+    let mut current_column = 0;
+    let mut byte_offset = rope.byte_of_line(row);
 
-    let line_length = rope.line(row).byte_len();
-
-    let byte_offset = rope.byte_of_line(row) + min(line_length, column);
+    for grapheme in rope.line(row).graphemes() {
+        let grapheme_width = grapheme.as_ref().display_width();
+        if current_column + grapheme_width > target_column {
+            break;
+        }
+        current_column += grapheme_width;
+        byte_offset += grapheme.len();
+    }
 
     Some(byte_offset)
 }
