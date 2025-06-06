@@ -242,6 +242,7 @@ fn position_to_byte_offset(
 
 fn update(editor: &mut Editor, area: Rect, event: &Event) -> anyhow::Result<()> {
     let areas = Areas::new(area);
+    #[allow(clippy::match_same_arms)]
     match event {
         Event::Key(key) => match editor.mode {
             Mode::Normal => match (key.modifiers, key.code) {
@@ -304,6 +305,16 @@ fn update(editor: &mut Editor, area: Rect, event: &Event) -> anyhow::Result<()> 
                     Position::new(mouse.column, mouse.row),
                 ) {
                     editor.anchor = byte_offset;
+                    editor.head = byte_offset;
+                }
+            }
+            MouseEventKind::Down(MouseButton::Right) => {
+                if let Some(byte_offset) = position_to_byte_offset(
+                    &editor.text,
+                    editor.vertical_scroll,
+                    areas.text,
+                    Position::new(mouse.column, mouse.row),
+                ) {
                     editor.head = byte_offset;
                 }
             }
