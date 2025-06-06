@@ -259,6 +259,9 @@ fn update(editor: &mut Editor, area: Rect, event: &Event) -> anyhow::Result<()> 
                 (m, KeyCode::Char(char)) if m == KeyModifiers::SHIFT => {
                     editor.insert(&char.to_string());
                 }
+                (m, KeyCode::Tab) if m == KeyModifiers::NONE => {
+                    editor.insert("\t");
+                }
                 (m, KeyCode::Backspace) if m == KeyModifiers::NONE => editor.delete_before(),
                 (m, KeyCode::Esc) if m == KeyModifiers::NONE => editor.mode = Mode::Normal,
                 (m, KeyCode::Char('s')) if m == KeyModifiers::CONTROL => editor.save()?,
