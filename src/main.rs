@@ -84,20 +84,44 @@ const DARK_YELLOW: Color = Color::Rgb(0xff, 0xd3, 0x3d);
 
 struct Areas {
     status_bar: Rect,
+    line_numbers: Rect,
     text: Rect,
 }
 
 impl Areas {
-    fn new(area: Rect) -> Self {
-        let [status_bar, text] =
-            Layout::vertical([Constraint::Length(1), Constraint::Fill(1)]).areas(area);
-        Self { status_bar, text }
+    fn new(text: &Rope, area: Rect) -> Self {
+        let line_numbers_width = {
+            let n = text.line_len();
+            let digits = 1 + max(1, n).ilog10();
+            u16::try_from(max(2, digits) + 1)
+                .expect("Line number width should always be very small")
+        };
+        let [status_bar, main] = Layout::vertical([
+            // status bar
+            Constraint::Length(1),
+            // line_numbers + text
+            Constraint::Fill(1),
+        ])
+        .areas(area);
+        let [line_numbers, text] = Layout::horizontal([
+            // line_numbers
+            Constraint::Length(line_numbers_width),
+            // fill
+            Constraint::Fill(1),
+        ])
+        .areas(main);
+        Self {
+            status_bar,
+            line_numbers,
+            text,
+        }
     }
 }
 
 fn render(editor: &Editor, area: Rect, buffer: &mut Buffer) {
-    let areas = Areas::new(area);
+    let areas = Areas::new(&editor.text, area);
     render_status_bar(editor, areas.status_bar, buffer);
+    render_line_numbers(editor, areas.line_numbers, buffer);
     render_text(editor, areas.text, buffer);
     render_selection(editor, areas.text, buffer);
 }
@@ -118,7 +142,18 @@ fn render_status_bar(editor: &Editor, area: Rect, buffer: &mut Buffer) {
     let anchor = editor.anchor;
     let head = editor.head;
     let status_bar = format!("{mode} {path}{modified} {anchor}-{head}");
-    Text::raw(status_bar).underlined().render(area, buffer);
+    Line::raw(status_bar).underlined().render(area, buffer);
+}
+
+fn render_line_numbers(editor: &Editor, area: Rect, buffer: &mut Buffer) {
+    for (line_number, row) in zip(
+        editor.vertical_scroll + 1..=editor.text.line_len(),
+        area.rows(),
+    ) {
+        Line::raw(format!("{line_number}│"))
+            .right_aligned()
+            .render(row, buffer);
+    }
 }
 
 fn render_text(editor: &Editor, area: Rect, buffer: &mut Buffer) {
@@ -126,7 +161,7 @@ fn render_text(editor: &Editor, area: Rect, buffer: &mut Buffer) {
         editor.text.lines().skip(editor.vertical_scroll),
         area.rows(),
     ) {
-        Text::raw(line.to_string().replace('\t', "        ")).render(row, buffer);
+        Line::raw(line.to_string().replace('\t', "        ")).render(row, buffer);
     }
 }
 
@@ -241,7 +276,7 @@ fn position_to_byte_offset(
 }
 
 fn update(editor: &mut Editor, area: Rect, event: &Event) -> anyhow::Result<()> {
-    let areas = Areas::new(area);
+    let areas = Areas::new(&editor.text, area);
     #[allow(clippy::match_same_arms)]
     match event {
         Event::Key(key) => match editor.mode {
