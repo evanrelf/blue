@@ -295,7 +295,10 @@ fn update(editor: &mut Editor, area: Rect, event: &Event) -> anyhow::Result<()> 
                     editor.flip_forward();
                 }
                 (m, KeyCode::Char('d')) if m == KeyModifiers::NONE => editor.delete(),
-                (m, KeyCode::Char('i')) if m == KeyModifiers::NONE => editor.mode = Mode::Insert,
+                (m, KeyCode::Char('i')) if m == KeyModifiers::NONE => {
+                    editor.reduce();
+                    editor.mode = Mode::Insert;
+                }
                 (m, KeyCode::Char('s')) if m == KeyModifiers::CONTROL => editor.save()?,
                 (m, KeyCode::Char('c')) if m == KeyModifiers::CONTROL && !editor.modified => {
                     editor.exit_code = Some(ExitCode::SUCCESS);
@@ -579,6 +582,7 @@ impl Editor {
     fn insert(&mut self, text: &str) {
         self.text.insert(self.head, text);
         self.head += text.len();
+        self.reduce();
         self.modified = true;
     }
 
@@ -588,6 +592,7 @@ impl Editor {
             let end = self.head;
             self.text.delete(start..end);
             self.head = start;
+            self.reduce();
             self.modified = true;
             debug_assert!(self.text.is_grapheme_boundary(self.anchor));
             debug_assert!(self.text.is_grapheme_boundary(self.head));
