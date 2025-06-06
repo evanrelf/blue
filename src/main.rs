@@ -234,8 +234,12 @@ fn update(editor: &mut Editor, area: Rect, event: &Event) -> anyhow::Result<()> 
             Mode::Normal => match (key.modifiers, key.code) {
                 (m, KeyCode::Char('h')) if m == KeyModifiers::NONE => editor.move_left(1),
                 (m, KeyCode::Char('l')) if m == KeyModifiers::NONE => editor.move_right(1),
+                (m, KeyCode::Char('k')) if m == KeyModifiers::NONE => editor.move_up(1),
+                (m, KeyCode::Char('j')) if m == KeyModifiers::NONE => editor.move_down(1),
                 (m, KeyCode::Char('h' | 'H')) if m == KeyModifiers::SHIFT => editor.extend_left(1),
                 (m, KeyCode::Char('l' | 'L')) if m == KeyModifiers::SHIFT => editor.extend_right(1),
+                (m, KeyCode::Char('k' | 'K')) if m == KeyModifiers::SHIFT => editor.extend_up(1),
+                (m, KeyCode::Char('j' | 'J')) if m == KeyModifiers::SHIFT => editor.extend_down(1),
                 (m, KeyCode::Char(';')) if m == KeyModifiers::NONE => editor.reduce(),
                 (m, KeyCode::Char(';')) if m == KeyModifiers::ALT => editor.flip(),
                 (m, KeyCode::Char(';')) if m == KeyModifiers::SHIFT | KeyModifiers::ALT => {
@@ -250,6 +254,7 @@ fn update(editor: &mut Editor, area: Rect, event: &Event) -> anyhow::Result<()> 
                 (m, KeyCode::Char('c')) if m == KeyModifiers::SHIFT | KeyModifiers::CONTROL => {
                     editor.exit_code = Some(ExitCode::FAILURE);
                 }
+                (m, KeyCode::Char('p')) if m == KeyModifiers::CONTROL => panic!(),
                 _ => {}
             },
             Mode::Insert => match (key.modifiers, key.code) {
@@ -271,6 +276,7 @@ fn update(editor: &mut Editor, area: Rect, event: &Event) -> anyhow::Result<()> 
                 (m, KeyCode::Char('c')) if m == KeyModifiers::SHIFT | KeyModifiers::CONTROL => {
                     editor.exit_code = Some(ExitCode::FAILURE);
                 }
+                (m, KeyCode::Char('p')) if m == KeyModifiers::CONTROL => panic!(),
                 _ => {}
             },
         },
@@ -312,6 +318,7 @@ struct Editor {
     text: Rope,
     anchor: usize,
     head: usize,
+    desired_column: Option<usize>,
     vertical_scroll: usize,
     mode: Mode,
     exit_code: Option<ExitCode>,
@@ -360,6 +367,7 @@ impl Editor {
                 _ => break,
             }
         }
+        self.desired_column = None;
     }
 
     fn extend_right(&mut self, count: usize) {
@@ -370,6 +378,68 @@ impl Editor {
                 _ => break,
             }
         }
+        self.desired_column = None;
+    }
+
+    fn extend_up(&mut self, count: usize) {
+        for _ in 0..count {
+            let current_line_index = self.text.line_of_byte(self.head);
+            if current_line_index == 0 {
+                break;
+            }
+            let target_line_index = current_line_index - 1;
+            let current_line_byte_index = self.text.byte_of_line(current_line_index);
+            let desired_column = self.desired_column.unwrap_or_else(|| {
+                self.text
+                    .byte_slice(current_line_byte_index..self.head)
+                    .display_width()
+            });
+            self.desired_column = Some(desired_column);
+            let target_line_byte_index = self.text.byte_of_line(target_line_index);
+            let target_line_slice = self.text.line(target_line_index);
+            let mut target_line_prefix = 0;
+            let mut byte_offset = target_line_byte_index;
+            for grapheme in target_line_slice.graphemes() {
+                let grapheme_width = grapheme.as_ref().display_width();
+                if target_line_prefix + grapheme_width > desired_column {
+                    break;
+                }
+                target_line_prefix += grapheme_width;
+                byte_offset += grapheme.len();
+            }
+            self.head = byte_offset;
+        }
+    }
+
+    fn extend_down(&mut self, count: usize) {
+        for _ in 0..count {
+            let current_line_index = self.text.line_of_byte(self.head);
+            let target_line_index = current_line_index + 1;
+            if target_line_index >= self.text.line_len() {
+                self.head = self.text.byte_len();
+                break;
+            }
+            let current_line_byte_index = self.text.byte_of_line(current_line_index);
+            let desired_column = self.desired_column.unwrap_or_else(|| {
+                self.text
+                    .byte_slice(current_line_byte_index..self.head)
+                    .display_width()
+            });
+            self.desired_column = Some(desired_column);
+            let target_line_byte_index = self.text.byte_of_line(target_line_index);
+            let target_line_slice = self.text.line(target_line_index);
+            let mut target_line_prefix = 0;
+            let mut byte_offset = target_line_byte_index;
+            for grapheme in target_line_slice.graphemes() {
+                let grapheme_width = grapheme.as_ref().display_width();
+                if target_line_prefix + grapheme_width > desired_column {
+                    break;
+                }
+                target_line_prefix += grapheme_width;
+                byte_offset += grapheme.len();
+            }
+            self.head = byte_offset;
+        }
     }
 
     fn move_left(&mut self, count: usize) {
@@ -379,6 +449,16 @@ impl Editor {
 
     fn move_right(&mut self, count: usize) {
         self.extend_right(count);
+        self.reduce();
+    }
+
+    fn move_up(&mut self, count: usize) {
+        self.extend_up(count);
+        self.reduce();
+    }
+
+    fn move_down(&mut self, count: usize) {
+        self.extend_down(count);
         self.reduce();
     }
 
@@ -458,6 +538,7 @@ impl TryFrom<Rope> for Editor {
             text: rope,
             anchor: 0,
             head: 0,
+            desired_column: None,
             vertical_scroll: 0,
             mode: Mode::Normal,
             exit_code: None,
