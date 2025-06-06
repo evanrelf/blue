@@ -16,3 +16,7 @@ unicode-width = "0.2.0"
 
 [lints]
 clippy.pedantic = { level = "warn", priority = -1 }
+
+[profile.profile]
+inherits = "release"
+debug = "full"
