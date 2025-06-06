@@ -307,6 +307,7 @@ fn update(editor: &mut Editor, area: Rect, event: &Event) -> anyhow::Result<()> 
                 _ => {}
             },
             Mode::Insert => match (key.modifiers, key.code) {
+                (m, KeyCode::Char('a')) if m == KeyModifiers::CONTROL => editor.move_line_start(),
                 (m, KeyCode::Char('b')) if m == KeyModifiers::CONTROL => editor.move_left(1),
                 (m, KeyCode::Char('f')) if m == KeyModifiers::CONTROL => editor.move_right(1),
                 (m, KeyCode::Char(char)) if m == KeyModifiers::NONE => {
@@ -503,6 +504,12 @@ impl Editor {
         }
     }
 
+    fn extend_line_start(&mut self) {
+        let line_index = self.text.line_of_byte(self.head);
+        let line_start_byte_index = self.text.byte_of_line(line_index);
+        self.head = line_start_byte_index;
+    }
+
     fn move_left(&mut self, count: usize) {
         self.extend_left(count);
         self.reduce();
@@ -520,6 +527,11 @@ impl Editor {
 
     fn move_down(&mut self, count: usize) {
         self.extend_down(count);
+        self.reduce();
+    }
+
+    fn move_line_start(&mut self) {
+        self.extend_line_start();
         self.reduce();
     }
 
