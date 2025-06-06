@@ -127,7 +127,7 @@ fn render_text(editor: &Editor, area: Rect, buffer: &mut Buffer) {
         editor.text.lines().skip(editor.vertical_scroll),
         area.rows(),
     ) {
-        Text::raw(line.to_string()).render(row, buffer);
+        Text::raw(line.to_string().replace('\t', "        ")).render(row, buffer);
     }
 }
 
