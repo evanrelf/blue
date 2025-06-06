@@ -17,7 +17,6 @@ use crossterm::{
         PushKeyboardEnhancementFlags,
     },
     execute,
-    terminal::{EnterAlternateScreen, LeaveAlternateScreen},
 };
 use pathdiff::diff_utf8_paths;
 use ratatui::prelude::*;
@@ -40,19 +39,15 @@ fn main() -> anyhow::Result<ExitCode> {
     let mut terminal = ratatui::init();
     execute!(
         io::stdout(),
-        EnterAlternateScreen,
         PushKeyboardEnhancementFlags(KeyboardEnhancementFlags::DISAMBIGUATE_ESCAPE_CODES),
         EnableMouseCapture,
     )?;
-
     let _guard = defer(|| {
         let _ = execute!(
             io::stdout(),
-            LeaveAlternateScreen,
             PopKeyboardEnhancementFlags,
             DisableMouseCapture,
         );
-        ratatui::restore();
     });
 
     let mut editor = if let Some(path) = args.file {
