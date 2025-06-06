@@ -307,6 +307,8 @@ fn update(editor: &mut Editor, area: Rect, event: &Event) -> anyhow::Result<()> 
                 _ => {}
             },
             Mode::Insert => match (key.modifiers, key.code) {
+                (m, KeyCode::Char('b')) if m == KeyModifiers::CONTROL => editor.move_left(1),
+                (m, KeyCode::Char('f')) if m == KeyModifiers::CONTROL => editor.move_right(1),
                 (m, KeyCode::Char(char)) if m == KeyModifiers::NONE => {
                     editor.insert(&char.to_string());
                 }
