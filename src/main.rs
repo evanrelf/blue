@@ -17,6 +17,7 @@ use crossterm::{
         PushKeyboardEnhancementFlags,
     },
     execute,
+    terminal::{Clear, ClearType},
 };
 use pathdiff::diff_utf8_paths;
 use ratatui::prelude::*;
@@ -39,6 +40,7 @@ fn main() -> anyhow::Result<ExitCode> {
     let mut terminal = ratatui::init();
     execute!(
         io::stdout(),
+        Clear(ClearType::All),
         PushKeyboardEnhancementFlags(KeyboardEnhancementFlags::DISAMBIGUATE_ESCAPE_CODES),
         EnableMouseCapture,
     )?;
