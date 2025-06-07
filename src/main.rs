@@ -359,6 +359,7 @@ fn update(editor: &mut Editor, area: Rect, event: &Event) -> anyhow::Result<()> 
                 ) {
                     editor.anchor = byte_offset;
                     editor.head = byte_offset;
+                    editor.desired_column = None;
                 }
             }
             MouseEventKind::Down(MouseButton::Right)
@@ -370,6 +371,7 @@ fn update(editor: &mut Editor, area: Rect, event: &Event) -> anyhow::Result<()> 
                     Position::new(mouse.column, mouse.row),
                 ) {
                     editor.head = byte_offset;
+                    editor.desired_column = None;
                 }
             }
             _ => {}
