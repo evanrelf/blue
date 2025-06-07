@@ -299,6 +299,18 @@ fn update(editor: &mut Editor, area: Rect, event: &Event) -> anyhow::Result<()> 
                     editor.reduce();
                     editor.mode = Mode::Insert;
                 }
+                (m, KeyCode::Char('u')) if m == KeyModifiers::CONTROL => {
+                    editor.scroll_up(usize::from(areas.text.height.saturating_sub(1) / 2));
+                }
+                (m, KeyCode::Char('d')) if m == KeyModifiers::CONTROL => {
+                    editor.scroll_down(usize::from(areas.text.height.saturating_sub(1) / 2));
+                }
+                (m, KeyCode::Char('b')) if m == KeyModifiers::CONTROL => {
+                    editor.scroll_up(usize::from(areas.text.height.saturating_sub(2)));
+                }
+                (m, KeyCode::Char('f')) if m == KeyModifiers::CONTROL => {
+                    editor.scroll_down(usize::from(areas.text.height.saturating_sub(2)));
+                }
                 (m, KeyCode::Char('s')) if m == KeyModifiers::CONTROL => editor.save()?,
                 (m, KeyCode::Char('c')) if m == KeyModifiers::CONTROL && !editor.modified => {
                     editor.exit_code = Some(ExitCode::SUCCESS);
@@ -314,10 +326,7 @@ fn update(editor: &mut Editor, area: Rect, event: &Event) -> anyhow::Result<()> 
                 (m, KeyCode::Char('e')) if m == KeyModifiers::CONTROL => editor.move_line_end(),
                 (m, KeyCode::Char('b')) if m == KeyModifiers::CONTROL => editor.move_left(1),
                 (m, KeyCode::Char('f')) if m == KeyModifiers::CONTROL => editor.move_right(1),
-                (m, KeyCode::Char(char)) if m == KeyModifiers::NONE => {
-                    editor.insert(&char.to_string());
-                }
-                (m, KeyCode::Char(char)) if m == KeyModifiers::SHIFT => {
+                (m, KeyCode::Char(char)) if m == KeyModifiers::NONE || m == KeyModifiers::SHIFT => {
                     editor.insert(&char.to_string());
                 }
                 (m, KeyCode::Tab) if m == KeyModifiers::NONE => {
