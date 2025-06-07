@@ -189,6 +189,7 @@ fn render_selection(editor: &Editor, area: Rect, buffer: &mut Buffer) {
     }
 }
 
+// TODO: Optimize
 fn byte_offset_to_area(
     rope: &Rope,
     vertical_scroll: usize,
