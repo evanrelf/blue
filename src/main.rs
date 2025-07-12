@@ -335,6 +335,10 @@ fn update(editor: &mut Editor, area: Rect, event: &Event) -> anyhow::Result<()> 
                 (m, KeyCode::Tab) if m == KeyModifiers::NONE => {
                     editor.insert("\t");
                 }
+                (m, KeyCode::Enter) if m == KeyModifiers::NONE => {
+                    editor.insert("\n");
+                    editor.desired_column = None;
+                }
                 (m, KeyCode::Backspace) if m == KeyModifiers::NONE => editor.delete_before(),
                 (m, KeyCode::Esc) if m == KeyModifiers::NONE => editor.mode = Mode::Normal,
                 (m, KeyCode::Char('s')) if m == KeyModifiers::CONTROL => editor.save()?,
