@@ -80,6 +80,8 @@ fn main() -> anyhow::Result<ExitCode> {
     Ok(exit_code)
 }
 
+const LIGHT_RED: Color = Color::Rgb(0xff, 0xdc, 0xe0);
+
 const LIGHT_YELLOW: Color = Color::Rgb(0xff, 0xf5, 0xb1);
 
 const DARK_YELLOW: Color = Color::Rgb(0xff, 0xd3, 0x3d);
@@ -129,7 +131,13 @@ fn render(editor: &Editor, area: Rect, buffer: &mut Buffer) {
 }
 
 fn render_status_bar(editor: &Editor, area: Rect, buffer: &mut Buffer) {
-    if let Mode::Command = editor.mode {
+    if let Some(error) = &editor.error {
+        let status_bar = format!("Error: {error}");
+        Line::raw(status_bar)
+            .underlined()
+            .bg(LIGHT_RED)
+            .render(area, buffer);
+    } else if let Mode::Command = editor.mode {
         let status_bar = format!(":{}", editor.command);
         Line::raw(status_bar).underlined().render(area, buffer);
         let cursor_x = area.x
@@ -297,6 +305,7 @@ fn position_to_byte_offset(
 }
 
 fn update(editor: &mut Editor, area: Rect, event: &Event) -> anyhow::Result<()> {
+    editor.error = None;
     let areas = Areas::new(&editor.text, area);
     #[allow(clippy::match_same_arms)]
     match event {
@@ -387,7 +396,9 @@ fn update(editor: &mut Editor, area: Rect, event: &Event) -> anyhow::Result<()> 
                     match command {
                         "w" => editor.save()?,
                         "q" => {
-                            if !editor.modified {
+                            if editor.modified {
+                                editor.error = Some(String::from("Unsaved changes"));
+                            } else {
                                 editor.exit_code = Some(ExitCode::SUCCESS);
                             }
                         }
@@ -396,7 +407,9 @@ fn update(editor: &mut Editor, area: Rect, event: &Event) -> anyhow::Result<()> 
                             editor.save()?;
                             editor.exit_code = Some(ExitCode::SUCCESS);
                         }
-                        _ => {}
+                        _ => {
+                            editor.error = Some(format!("Unknown command `{command}`"));
+                        }
                     }
                     editor.command = Rope::new();
                     editor.command_cursor = 0;
@@ -456,6 +469,7 @@ struct Editor {
     mode: Mode,
     command: Rope,
     command_cursor: usize,
+    error: Option<String>,
     exit_code: Option<ExitCode>,
 }
 
@@ -704,6 +718,7 @@ impl TryFrom<Rope> for Editor {
             mode: Mode::Normal,
             command: Rope::new(),
             command_cursor: 0,
+            error: None,
             exit_code: None,
         })
     }
