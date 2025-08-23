@@ -325,6 +325,10 @@ fn update(editor: &mut Editor, area: Rect, event: &Event) -> anyhow::Result<()> 
                     editor.flip_forward();
                 }
                 (m, KeyCode::Char('d')) if m == KeyModifiers::NONE => editor.delete(),
+                (m, KeyCode::Char('c')) if m == KeyModifiers::NONE => {
+                    editor.delete();
+                    editor.mode = Mode::Insert;
+                }
                 (m, KeyCode::Char('i')) if m == KeyModifiers::NONE => {
                     editor.reduce();
                     editor.mode = Mode::Insert;
