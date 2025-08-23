@@ -129,22 +129,40 @@ fn render(editor: &Editor, area: Rect, buffer: &mut Buffer) {
 }
 
 fn render_status_bar(editor: &Editor, area: Rect, buffer: &mut Buffer) {
-    let mode = match editor.mode {
-        Mode::Normal => "n",
-        Mode::Insert => "i",
-    };
-    let path = match &editor.path {
-        None => String::from("*scratch*"),
-        Some(path) => match diff_utf8_paths(path, &editor.pwd) {
-            None => path.to_string(),
-            Some(path) => path.to_string(),
-        },
-    };
-    let modified = if editor.modified { " [+]" } else { "" };
-    let anchor = editor.anchor;
-    let head = editor.head;
-    let status_bar = format!("{mode} {path}{modified} {anchor}-{head}");
-    Line::raw(status_bar).underlined().render(area, buffer);
+    if let Mode::Command = editor.mode {
+        let status_bar = format!(":{}", editor.command);
+        Line::raw(status_bar).underlined().render(area, buffer);
+        let cursor_x = area.x
+            + 1
+            + u16::try_from(
+                editor
+                    .command
+                    .byte_slice(..editor.command_cursor)
+                    .display_width(),
+            )
+            .expect("Command length should not exceed `u16::MAX`");
+        if let Some(cell) = buffer.cell_mut((cursor_x, area.y)) {
+            cell.set_bg(DARK_YELLOW);
+        }
+    } else {
+        let mode = match editor.mode {
+            Mode::Normal => "n",
+            Mode::Insert => "i",
+            Mode::Command => unreachable!(),
+        };
+        let path = match &editor.path {
+            None => String::from("*scratch*"),
+            Some(path) => match diff_utf8_paths(path, &editor.pwd) {
+                None => path.to_string(),
+                Some(path) => path.to_string(),
+            },
+        };
+        let modified = if editor.modified { " [+]" } else { "" };
+        let anchor = editor.anchor;
+        let head = editor.head;
+        let status_bar = format!("{mode} {path}{modified} {anchor}-{head}");
+        Line::raw(status_bar).underlined().render(area, buffer);
+    }
 }
 
 fn render_line_numbers(editor: &Editor, area: Rect, buffer: &mut Buffer) {
@@ -302,6 +320,11 @@ fn update(editor: &mut Editor, area: Rect, event: &Event) -> anyhow::Result<()> 
                     editor.reduce();
                     editor.mode = Mode::Insert;
                 }
+                (m, KeyCode::Char(':')) if m == KeyModifiers::NONE => {
+                    editor.command = Rope::new();
+                    editor.command_cursor = 0;
+                    editor.mode = Mode::Command;
+                }
                 (m, KeyCode::Char('u')) if m == KeyModifiers::CONTROL => {
                     editor.scroll_up(usize::from(areas.text.height.saturating_sub(1) / 2));
                 }
@@ -351,6 +374,57 @@ fn update(editor: &mut Editor, area: Rect, event: &Event) -> anyhow::Result<()> 
                 (m, KeyCode::Char('p')) if m == KeyModifiers::CONTROL => panic!(),
                 _ => {}
             },
+            Mode::Command => match (key.modifiers, key.code) {
+                (m, KeyCode::Char(char)) if m == KeyModifiers::NONE || m == KeyModifiers::SHIFT => {
+                    let string = char.to_string();
+                    editor.command.insert(editor.command_cursor, &string);
+                    editor.command_cursor += string.len();
+                }
+                (m, KeyCode::Backspace) if m == KeyModifiers::NONE => {
+                    if editor.command_cursor > 0 {
+                        debug_assert!(!editor.command.is_empty());
+                        if let Some(prev) = prev_grapheme_boundary(
+                            &editor.command.byte_slice(..),
+                            editor.command_cursor,
+                        ) {
+                            editor.command.delete(prev..editor.command_cursor);
+                            editor.command_cursor = prev;
+                        }
+                    } else if editor.command.is_empty() {
+                        debug_assert!(editor.command_cursor == 0);
+                        editor.command = Rope::new();
+                        editor.command_cursor = 0;
+                        editor.mode = Mode::Normal;
+                    }
+                }
+                (m, KeyCode::Enter) if m == KeyModifiers::NONE => {
+                    let command = editor.command.to_string();
+                    let command = command.trim();
+                    match command {
+                        "w" => editor.save()?,
+                        "q" => {
+                            if !editor.modified {
+                                editor.exit_code = Some(ExitCode::SUCCESS);
+                            }
+                        }
+                        "q!" => editor.exit_code = Some(ExitCode::FAILURE),
+                        "wq" => {
+                            editor.save()?;
+                            editor.exit_code = Some(ExitCode::SUCCESS);
+                        }
+                        _ => {}
+                    }
+                    editor.command = Rope::new();
+                    editor.command_cursor = 0;
+                    editor.mode = Mode::Normal;
+                }
+                (m, KeyCode::Esc) if m == KeyModifiers::NONE => {
+                    editor.command = Rope::new();
+                    editor.command_cursor = 0;
+                    editor.mode = Mode::Normal;
+                }
+                _ => {}
+            },
         },
         Event::Mouse(mouse) => match mouse.kind {
             MouseEventKind::ScrollUp => editor.scroll_up(3),
@@ -396,6 +470,8 @@ struct Editor {
     desired_column: Option<usize>,
     vertical_scroll: usize,
     mode: Mode,
+    command: Rope,
+    command_cursor: usize,
     exit_code: Option<ExitCode>,
 }
 
@@ -642,6 +718,8 @@ impl TryFrom<Rope> for Editor {
             desired_column: None,
             vertical_scroll: 0,
             mode: Mode::Normal,
+            command: Rope::new(),
+            command_cursor: 0,
             exit_code: None,
         })
     }
@@ -650,4 +728,5 @@ impl TryFrom<Rope> for Editor {
 enum Mode {
     Normal,
     Insert,
+    Command,
 }
