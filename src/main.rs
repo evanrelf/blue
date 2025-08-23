@@ -689,7 +689,8 @@ impl Editor {
         let start = min(self.anchor, self.head);
         let end = max(self.anchor, self.head);
         self.text.delete(start..end);
-        self.head = self.anchor;
+        self.head = start;
+        self.anchor = start;
         self.modified = true;
         debug_assert!(self.text.is_grapheme_boundary(self.anchor));
         debug_assert!(self.text.is_grapheme_boundary(self.head));
