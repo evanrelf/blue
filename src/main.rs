@@ -394,16 +394,16 @@ fn update(editor: &mut Editor, area: Rect, event: &Event) -> anyhow::Result<()> 
                     let command = editor.command.to_string();
                     let command = command.trim();
                     match command {
-                        "w" => editor.save()?,
-                        "q" => {
+                        "write" | "w" => editor.save()?,
+                        "quit" | "q" => {
                             if editor.modified {
                                 editor.error = Some(String::from("Unsaved changes"));
                             } else {
                                 editor.exit_code = Some(ExitCode::SUCCESS);
                             }
                         }
-                        "q!" => editor.exit_code = Some(ExitCode::FAILURE),
-                        "wq" => {
+                        "quit!" | "q!" => editor.exit_code = Some(ExitCode::FAILURE),
+                        "write-quit" | "wq" => {
                             editor.save()?;
                             editor.exit_code = Some(ExitCode::SUCCESS);
                         }
