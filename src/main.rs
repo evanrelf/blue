@@ -407,6 +407,7 @@ fn update(editor: &mut Editor, area: Rect, event: &Event) -> anyhow::Result<()> 
                             editor.save()?;
                             editor.exit_code = Some(ExitCode::SUCCESS);
                         }
+                        "" => {}
                         _ => {
                             editor.error = Some(format!("Unknown command `{command}`"));
                         }
