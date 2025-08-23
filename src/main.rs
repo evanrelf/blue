@@ -337,14 +337,6 @@ fn update(editor: &mut Editor, area: Rect, event: &Event) -> anyhow::Result<()> 
                 (m, KeyCode::Char('f')) if m == KeyModifiers::CONTROL => {
                     editor.scroll_down(usize::from(areas.text.height.saturating_sub(2)));
                 }
-                (m, KeyCode::Char('s')) if m == KeyModifiers::CONTROL => editor.save()?,
-                (m, KeyCode::Char('c')) if m == KeyModifiers::CONTROL && !editor.modified => {
-                    editor.exit_code = Some(ExitCode::SUCCESS);
-                }
-                (m, KeyCode::Char('c')) if m == KeyModifiers::SHIFT | KeyModifiers::CONTROL => {
-                    editor.exit_code = Some(ExitCode::FAILURE);
-                }
-                (m, KeyCode::Char('p')) if m == KeyModifiers::CONTROL => panic!(),
                 _ => {}
             },
             Mode::Insert => match (key.modifiers, key.code) {
@@ -364,14 +356,6 @@ fn update(editor: &mut Editor, area: Rect, event: &Event) -> anyhow::Result<()> 
                 }
                 (m, KeyCode::Backspace) if m == KeyModifiers::NONE => editor.delete_before(),
                 (m, KeyCode::Esc) if m == KeyModifiers::NONE => editor.mode = Mode::Normal,
-                (m, KeyCode::Char('s')) if m == KeyModifiers::CONTROL => editor.save()?,
-                (m, KeyCode::Char('c')) if m == KeyModifiers::CONTROL && !editor.modified => {
-                    editor.exit_code = Some(ExitCode::SUCCESS);
-                }
-                (m, KeyCode::Char('c')) if m == KeyModifiers::SHIFT | KeyModifiers::CONTROL => {
-                    editor.exit_code = Some(ExitCode::FAILURE);
-                }
-                (m, KeyCode::Char('p')) if m == KeyModifiers::CONTROL => panic!(),
                 _ => {}
             },
             Mode::Command => match (key.modifiers, key.code) {
