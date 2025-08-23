@@ -498,9 +498,6 @@ impl Editor {
     }
 
     fn save(&mut self) -> anyhow::Result<()> {
-        if !self.modified {
-            return Ok(());
-        }
         if let Some(path) = &self.path {
             let bytes = self.text.bytes().collect::<Vec<_>>();
             fs::write(path, bytes)?;
