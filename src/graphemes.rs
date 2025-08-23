@@ -45,6 +45,7 @@ pub fn floor_grapheme_boundary(rope: &RopeSlice, byte_offset: usize) -> usize {
     prev_grapheme_boundary(rope, byte_offset).unwrap()
 }
 
+#[expect(dead_code)]
 #[must_use]
 pub fn ceil_grapheme_boundary(rope: &RopeSlice, byte_offset: usize) -> usize {
     let length = rope.byte_len();

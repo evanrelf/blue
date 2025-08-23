@@ -304,6 +304,7 @@ fn position_to_byte_offset(
     Some(byte_offset)
 }
 
+#[expect(clippy::too_many_lines)]
 fn update(editor: &mut Editor, area: Rect, event: &Event) -> anyhow::Result<()> {
     editor.error = None;
     let areas = Areas::new(&editor.text, area);
@@ -693,6 +694,7 @@ impl Editor {
         debug_assert!(self.text.is_grapheme_boundary(self.head));
     }
 
+    #[expect(dead_code)]
     fn delete_after(&mut self) {
         if let Some(grapheme) = self.text.byte_slice(self.head..).graphemes().next() {
             let start = self.head;
