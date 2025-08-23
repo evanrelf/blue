@@ -5,7 +5,10 @@ mod graphemes;
 use crate::{
     defer::defer,
     display_width::DisplayWidth as _,
-    graphemes::{floor_grapheme_boundary, next_grapheme_boundary, prev_grapheme_boundary},
+    graphemes::{
+        ceil_grapheme_boundary, floor_grapheme_boundary, next_grapheme_boundary,
+        prev_grapheme_boundary,
+    },
 };
 use camino::{Utf8Path, Utf8PathBuf};
 use clap::Parser as _;
@@ -500,8 +503,13 @@ fn update(editor: &mut Editor, area: Rect, event: &Event) -> anyhow::Result<()> 
                     areas.text,
                     Position::new(mouse.column, mouse.row),
                 ) {
+                    if editor.is_backward() {
+                        editor.head = byte_offset;
+                    } else {
+                        editor.head =
+                            ceil_grapheme_boundary(&editor.text.byte_slice(..), byte_offset + 1);
+                    }
                     editor.anchor = byte_offset;
-                    editor.head = byte_offset;
                     editor.desired_column = None;
                 }
             }
@@ -513,7 +521,12 @@ fn update(editor: &mut Editor, area: Rect, event: &Event) -> anyhow::Result<()> 
                     areas.text,
                     Position::new(mouse.column, mouse.row),
                 ) {
-                    editor.head = byte_offset;
+                    if editor.is_backward() {
+                        editor.head = byte_offset;
+                    } else {
+                        editor.head =
+                            ceil_grapheme_boundary(&editor.text.byte_slice(..), byte_offset + 1);
+                    }
                     editor.desired_column = None;
                 }
             }
@@ -699,12 +712,20 @@ impl Editor {
         self.reduce();
     }
 
+    fn is_forward(&self) -> bool {
+        self.anchor <= self.head
+    }
+
+    fn is_backward(&self) -> bool {
+        !self.is_forward()
+    }
+
     fn flip(&mut self) {
         mem::swap(&mut self.anchor, &mut self.head);
     }
 
     fn flip_forward(&mut self) {
-        if self.anchor > self.head {
+        if !self.is_forward() {
             self.flip();
         }
     }
