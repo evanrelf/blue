@@ -198,15 +198,42 @@ fn render_selection(editor: &Editor, area: Rect, buffer: &mut Buffer) {
         let start = min(editor.anchor, editor.head);
         let end = max(editor.anchor, editor.head);
         let end = next_grapheme_boundary(&editor.text.byte_slice(..), end).unwrap_or(end);
-        let selection_slice = editor.text.byte_slice(start..end);
-        let mut current_offset = start;
-        for grapheme in selection_slice.graphemes() {
-            if let Some(grapheme_area) =
-                byte_offset_to_area(&editor.text, editor.vertical_scroll, area, current_offset)
-            {
-                buffer.set_style(grapheme_area, Style::new().bg(LIGHT_YELLOW));
+        let start_line = editor.text.line_of_byte(start);
+        let end_line = editor.text.line_of_byte(end.saturating_sub(1));
+        for line_index in start_line..=end_line {
+            let Some(mut line_area) =
+                line_index_to_area(&editor.text, editor.vertical_scroll, area, line_index)
+            else {
+                continue;
+            };
+            if line_index == start_line {
+                if let Some(start_area) =
+                    byte_offset_to_area(&editor.text, editor.vertical_scroll, area, start)
+                {
+                    let delta = start_area.x - line_area.x;
+                    line_area.x += delta;
+                    line_area.width -= delta;
+                } else {
+                    // TODO: We continue here because we know the range start is off the screen to
+                    // the right. Once horizontal scrolling is added, we'll need to handle when the
+                    // range is off the screen to the left. `byte_offset_to_area` doesn't say which
+                    // direction the index is off screen.
+                    continue;
+                }
             }
-            current_offset += grapheme.len();
+            #[expect(clippy::collapsible_if)]
+            if line_index == end_line {
+                if let Some(end_area) = byte_offset_to_area(
+                    &editor.text,
+                    editor.vertical_scroll,
+                    area,
+                    end.saturating_sub(1),
+                ) {
+                    let delta = line_area.right() - end_area.right();
+                    line_area.width -= delta;
+                }
+            }
+            buffer.set_style(line_area, Style::new().bg(LIGHT_YELLOW));
         }
     }
     if let Some(area) = byte_offset_to_area(&editor.text, editor.vertical_scroll, area, editor.head)
@@ -263,6 +290,40 @@ fn byte_offset_to_area(
         // We're at EOF, but we already checked for that
         unreachable!()
     };
+
+    Some(Rect {
+        x,
+        y,
+        width,
+        height: 1,
+    })
+}
+
+fn line_index_to_area(
+    rope: &Rope,
+    vertical_scroll: usize,
+    area: Rect,
+    line_index: usize,
+) -> Option<Rect> {
+    if vertical_scroll > line_index {
+        return None;
+    }
+
+    if line_index >= rope.line_len() {
+        return None;
+    }
+
+    let x = area.x;
+
+    let y = area.y + u16::try_from(line_index - vertical_scroll).unwrap();
+
+    if !(area.top()..area.bottom()).contains(&y) {
+        return None;
+    }
+
+    let line = rope.line_slice(line_index..=line_index);
+
+    let width = u16::try_from(line.display_width()).unwrap();
 
     Some(Rect {
         x,
