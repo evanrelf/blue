@@ -26,7 +26,7 @@ use pathdiff::diff_utf8_paths;
 use ratatui::prelude::*;
 use std::{
     cmp::{max, min},
-    env, fs, io,
+    env, fs, io, iter,
     iter::zip,
     mem,
     process::ExitCode,
@@ -472,25 +472,69 @@ fn update(editor: &mut Editor, area: Rect, event: &Event) -> anyhow::Result<()> 
                     }
                 }
                 (m, KeyCode::Enter) if m == KeyModifiers::NONE => {
-                    let command = editor.command.to_string();
-                    let command = command.trim();
+                    #[derive(clap::Parser)]
+                    enum Command {
+                        #[clap(alias = "w")]
+                        Write,
+                        #[clap(alias = "q")]
+                        Quit { exit_code: Option<u8> },
+                        #[clap(name = "quit!", alias = "q!")]
+                        QuitForce { exit_code: Option<u8> },
+                        #[clap(name = "write-quit", alias = "wq")]
+                        WriteQuit { exit_code: Option<u8> },
+                    }
+                    let Ok(args) = shellwords::split(&editor.command.to_string()) else {
+                        editor.error = Some(String::from("Invalid command"));
+                        editor.command = Rope::new();
+                        editor.command_cursor = 0;
+                        editor.mode = Mode::Normal;
+                        return Ok(());
+                    };
+                    let command =
+                        match Command::try_parse_from(iter::once(String::from("blue")).chain(args))
+                        {
+                            Ok(command) => command,
+                            Err(error) => {
+                                let error = error.to_string();
+                                match error.strip_prefix("error: ") {
+                                    Some(error) => editor.error = Some(error.to_string()),
+                                    None => editor.error = Some(error),
+                                }
+                                editor.command = Rope::new();
+                                editor.command_cursor = 0;
+                                editor.mode = Mode::Normal;
+                                return Ok(());
+                            }
+                        };
                     match command {
-                        "write" | "w" => editor.save()?,
-                        "quit" | "q" => {
+                        Command::Write => {
+                            editor.save()?;
+                        }
+                        Command::Quit { exit_code } => {
                             if editor.modified {
                                 editor.error = Some(String::from("Unsaved changes"));
                             } else {
-                                editor.exit_code = Some(ExitCode::SUCCESS);
+                                editor.exit_code = if let Some(exit_code) = exit_code {
+                                    Some(ExitCode::from(exit_code))
+                                } else {
+                                    Some(ExitCode::SUCCESS)
+                                };
                             }
                         }
-                        "quit!" | "q!" => editor.exit_code = Some(ExitCode::FAILURE),
-                        "write-quit" | "wq" => {
-                            editor.save()?;
-                            editor.exit_code = Some(ExitCode::SUCCESS);
+                        Command::QuitForce { exit_code } => {
+                            editor.exit_code = if let Some(exit_code) = exit_code {
+                                Some(ExitCode::from(exit_code))
+                            } else {
+                                Some(ExitCode::SUCCESS)
+                            };
                         }
-                        "" => {}
-                        _ => {
-                            editor.error = Some(format!("Unknown command `{command}`"));
+                        Command::WriteQuit { exit_code } => {
+                            editor.save()?;
+                            editor.exit_code = if let Some(exit_code) = exit_code {
+                                Some(ExitCode::from(exit_code))
+                            } else {
+                                Some(ExitCode::SUCCESS)
+                            };
                         }
                     }
                     editor.command = Rope::new();
