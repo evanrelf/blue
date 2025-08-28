@@ -171,7 +171,7 @@ fn render_status_bar(editor: &Editor, area: Rect, buffer: &mut Buffer) {
                 Some(path) => path.to_string(),
             },
         };
-        let modified = if editor.modified { " [+]" } else { "" };
+        let modified = if editor.modified { "*" } else { "" };
         let anchor = editor.anchor;
         let head = editor.head;
         let status_bar = format!("{mode} · {path}{modified} {anchor}-{head}");
