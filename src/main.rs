@@ -472,74 +472,7 @@ fn update(editor: &mut Editor, area: Rect, event: &Event) -> anyhow::Result<()> 
                     }
                 }
                 (m, KeyCode::Enter) if m == KeyModifiers::NONE => {
-                    #[derive(clap::Parser)]
-                    enum Command {
-                        #[clap(alias = "w")]
-                        Write,
-                        #[clap(alias = "q")]
-                        Quit { exit_code: Option<u8> },
-                        #[clap(name = "quit!", alias = "q!")]
-                        QuitForce { exit_code: Option<u8> },
-                        #[clap(name = "write-quit", alias = "wq")]
-                        WriteQuit { exit_code: Option<u8> },
-                    }
-                    let Ok(args) = shellwords::split(&editor.command.to_string()) else {
-                        editor.error = Some(String::from("Invalid command"));
-                        editor.command = Rope::new();
-                        editor.command_cursor = 0;
-                        editor.mode = Mode::Normal;
-                        return Ok(());
-                    };
-                    let command =
-                        match Command::try_parse_from(iter::once(String::from("blue")).chain(args))
-                        {
-                            Ok(command) => command,
-                            Err(error) => {
-                                let error = error.to_string();
-                                match error.strip_prefix("error: ") {
-                                    Some(error) => editor.error = Some(error.to_string()),
-                                    None => editor.error = Some(error),
-                                }
-                                editor.command = Rope::new();
-                                editor.command_cursor = 0;
-                                editor.mode = Mode::Normal;
-                                return Ok(());
-                            }
-                        };
-                    match command {
-                        Command::Write => {
-                            editor.save()?;
-                        }
-                        Command::Quit { exit_code } => {
-                            if editor.modified {
-                                editor.error = Some(String::from("Unsaved changes"));
-                            } else {
-                                editor.exit_code = if let Some(exit_code) = exit_code {
-                                    Some(ExitCode::from(exit_code))
-                                } else {
-                                    Some(ExitCode::SUCCESS)
-                                };
-                            }
-                        }
-                        Command::QuitForce { exit_code } => {
-                            editor.exit_code = if let Some(exit_code) = exit_code {
-                                Some(ExitCode::from(exit_code))
-                            } else {
-                                Some(ExitCode::SUCCESS)
-                            };
-                        }
-                        Command::WriteQuit { exit_code } => {
-                            editor.save()?;
-                            editor.exit_code = if let Some(exit_code) = exit_code {
-                                Some(ExitCode::from(exit_code))
-                            } else {
-                                Some(ExitCode::SUCCESS)
-                            };
-                        }
-                    }
-                    editor.command = Rope::new();
-                    editor.command_cursor = 0;
-                    editor.mode = Mode::Normal;
+                    editor.execute_command()?;
                 }
                 (m, KeyCode::Esc) if m == KeyModifiers::NONE => {
                     editor.command = Rope::new();
@@ -844,6 +777,76 @@ impl Editor {
             debug_assert!(self.text.is_grapheme_boundary(self.anchor));
             debug_assert!(self.text.is_grapheme_boundary(self.head));
         }
+    }
+
+    fn execute_command(&mut self) -> anyhow::Result<()> {
+        #[derive(clap::Parser)]
+        enum Command {
+            #[clap(alias = "w")]
+            Write,
+            #[clap(alias = "q")]
+            Quit { exit_code: Option<u8> },
+            #[clap(name = "quit!", alias = "q!")]
+            QuitForce { exit_code: Option<u8> },
+            #[clap(name = "write-quit", alias = "wq")]
+            WriteQuit { exit_code: Option<u8> },
+        }
+        let Ok(args) = shellwords::split(&self.command.to_string()) else {
+            self.error = Some(String::from("Invalid command"));
+            self.command = Rope::new();
+            self.command_cursor = 0;
+            self.mode = Mode::Normal;
+            return Ok(());
+        };
+        let command = match Command::try_parse_from(iter::once(String::from("blue")).chain(args)) {
+            Ok(command) => command,
+            Err(error) => {
+                let error = error.to_string();
+                match error.strip_prefix("error: ") {
+                    Some(error) => self.error = Some(error.to_string()),
+                    None => self.error = Some(error),
+                }
+                self.command = Rope::new();
+                self.command_cursor = 0;
+                self.mode = Mode::Normal;
+                return Ok(());
+            }
+        };
+        match command {
+            Command::Write => {
+                self.save()?;
+            }
+            Command::Quit { exit_code } => {
+                if self.modified {
+                    self.error = Some(String::from("Unsaved changes"));
+                } else {
+                    self.exit_code = if let Some(exit_code) = exit_code {
+                        Some(ExitCode::from(exit_code))
+                    } else {
+                        Some(ExitCode::SUCCESS)
+                    };
+                }
+            }
+            Command::QuitForce { exit_code } => {
+                self.exit_code = if let Some(exit_code) = exit_code {
+                    Some(ExitCode::from(exit_code))
+                } else {
+                    Some(ExitCode::SUCCESS)
+                };
+            }
+            Command::WriteQuit { exit_code } => {
+                self.save()?;
+                self.exit_code = if let Some(exit_code) = exit_code {
+                    Some(ExitCode::from(exit_code))
+                } else {
+                    Some(ExitCode::SUCCESS)
+                };
+            }
+        }
+        self.command = Rope::new();
+        self.command_cursor = 0;
+        self.mode = Mode::Normal;
+        Ok(())
     }
 }
 
