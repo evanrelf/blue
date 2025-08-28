@@ -440,6 +440,22 @@ fn update(editor: &mut Editor, area: Rect, event: &Event) -> anyhow::Result<()> 
                     editor.desired_column = None;
                     editor.mode = Mode::Normal;
                 }
+                (m, KeyCode::Char('h')) if m == KeyModifiers::NONE => {
+                    editor.move_line_start();
+                    editor.mode = Mode::Normal;
+                }
+                (m, KeyCode::Char('l')) if m == KeyModifiers::NONE => {
+                    editor.move_line_end();
+                    editor.mode = Mode::Normal;
+                }
+                (m, KeyCode::Char('h' | 'H')) if m == KeyModifiers::SHIFT => {
+                    editor.extend_line_start();
+                    editor.mode = Mode::Normal;
+                }
+                (m, KeyCode::Char('l' | 'L')) if m == KeyModifiers::SHIFT => {
+                    editor.extend_line_end();
+                    editor.mode = Mode::Normal;
+                }
                 (m, KeyCode::Esc) if m == KeyModifiers::NONE => editor.mode = Mode::Normal,
                 _ => {
                     editor.message = Some(Err(String::from("Unknown key")));
@@ -683,6 +699,7 @@ impl Editor {
     fn extend_line_end(&mut self) {
         let line_index = self.text.line_of_byte(self.head);
         let line_start_byte_index = self.text.byte_of_line(line_index);
+        // TODO: Fix `line index out of bounds` panic when running this at EOF
         let line = self.text.line(line_index);
         let line_end_byte_index = line_start_byte_index + line.byte_len();
         self.head = line_end_byte_index;
