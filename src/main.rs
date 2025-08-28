@@ -85,6 +85,8 @@ fn main() -> anyhow::Result<ExitCode> {
 
 const LIGHT_RED: Color = Color::Rgb(0xff, 0xdc, 0xe0);
 
+const DARK_ORANGE: Color = Color::Rgb(0xd1, 0x57, 0x04);
+
 const LIGHT_YELLOW: Color = Color::Rgb(0xff, 0xf5, 0xb1);
 
 const DARK_YELLOW: Color = Color::Rgb(0xff, 0xd3, 0x3d);
@@ -244,7 +246,14 @@ fn render_selection(editor: &Editor, area: Rect, buffer: &mut Buffer) {
         editor.head
     };
     if let Some(area) = byte_offset_to_area(&editor.text, editor.vertical_scroll, area, head) {
-        buffer.set_style(area, Style::new().bg(DARK_YELLOW));
+        buffer.set_style(
+            area,
+            Style::new().bg(if editor.anchor == editor.head {
+                DARK_ORANGE
+            } else {
+                DARK_YELLOW
+            }),
+        );
     }
 }
 
