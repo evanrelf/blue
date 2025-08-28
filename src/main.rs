@@ -482,6 +482,26 @@ fn update(editor: &mut Editor, area: Rect, event: &Event) -> anyhow::Result<()> 
                 _ => {}
             },
             Mode::Command => match (key.modifiers, key.code) {
+                (m, KeyCode::Char('a')) if m == KeyModifiers::CONTROL => editor.command_cursor = 0,
+                (m, KeyCode::Char('e')) if m == KeyModifiers::CONTROL => {
+                    editor.command_cursor = editor.command.byte_len();
+                }
+                (m, KeyCode::Left) if m == KeyModifiers::NONE => editor.command_mode_move_left(1),
+                (m, KeyCode::Right) if m == KeyModifiers::NONE => {
+                    editor.command_mode_move_right(1);
+                }
+                (m, KeyCode::Char('b')) if m == KeyModifiers::CONTROL => {
+                    editor.command_mode_move_left(1);
+                }
+                (m, KeyCode::Char('f')) if m == KeyModifiers::CONTROL => {
+                    editor.command_mode_move_right(1);
+                }
+                // (m, KeyCode::Char('k')) if m == KeyModifiers::CONTROL => {
+                //     todo!()
+                // }
+                // (m, KeyCode::Char('u')) if m == KeyModifiers::CONTROL => {
+                //     todo!()
+                // }
                 (m, KeyCode::Char(char)) if m == KeyModifiers::NONE || m == KeyModifiers::SHIFT => {
                     let string = char.to_string();
                     editor.command.insert(editor.command_cursor, &string);
@@ -733,6 +753,26 @@ impl Editor {
     fn move_line_end(&mut self) {
         self.extend_line_end();
         self.reduce();
+    }
+
+    fn command_mode_move_left(&mut self, count: usize) {
+        debug_assert!(self.command.is_grapheme_boundary(self.command_cursor));
+        for _ in 0..count {
+            match prev_grapheme_boundary(&self.command.byte_slice(..), self.command_cursor) {
+                Some(prev) if self.command_cursor != prev => self.command_cursor = prev,
+                _ => break,
+            }
+        }
+    }
+
+    fn command_mode_move_right(&mut self, count: usize) {
+        debug_assert!(self.command.is_grapheme_boundary(self.command_cursor));
+        for _ in 0..count {
+            match next_grapheme_boundary(&self.command.byte_slice(..), self.command_cursor) {
+                Some(next) if self.command_cursor != next => self.command_cursor = next,
+                _ => break,
+            }
+        }
     }
 
     fn is_forward(&self) -> bool {
