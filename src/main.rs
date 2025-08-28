@@ -139,7 +139,7 @@ fn render_status_bar(editor: &Editor, area: Rect, buffer: &mut Buffer) {
     if let Some(message) = &editor.message {
         match message {
             Ok(message) => Line::raw(message).underlined().render(area, buffer),
-            Err(message) => Line::raw(format!("Error: {message}"))
+            Err(message) => Line::raw(message)
                 .underlined()
                 .bg(LIGHT_RED)
                 .render(area, buffer),
