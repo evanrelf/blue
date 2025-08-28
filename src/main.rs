@@ -136,12 +136,14 @@ fn render(editor: &Editor, area: Rect, buffer: &mut Buffer) {
 }
 
 fn render_status_bar(editor: &Editor, area: Rect, buffer: &mut Buffer) {
-    if let Some(error) = &editor.error {
-        let status_bar = format!("Error: {error}");
-        Line::raw(status_bar)
-            .underlined()
-            .bg(LIGHT_RED)
-            .render(area, buffer);
+    if let Some(message) = &editor.message {
+        match message {
+            Ok(message) => Line::raw(message).underlined().render(area, buffer),
+            Err(message) => Line::raw(format!("Error: {message}"))
+                .underlined()
+                .bg(LIGHT_RED)
+                .render(area, buffer),
+        }
     } else if let Mode::Command = editor.mode {
         let status_bar = format!(":{}", editor.command);
         Line::raw(status_bar).underlined().render(area, buffer);
@@ -383,7 +385,7 @@ fn position_to_byte_offset(
 
 #[expect(clippy::too_many_lines)]
 fn update(editor: &mut Editor, area: Rect, event: &Event) -> anyhow::Result<()> {
-    editor.error = None;
+    editor.message = None;
     let areas = Areas::new(&editor.text, area);
     #[allow(clippy::match_same_arms)]
     match event {
@@ -440,7 +442,7 @@ fn update(editor: &mut Editor, area: Rect, event: &Event) -> anyhow::Result<()> 
                 }
                 (m, KeyCode::Esc) if m == KeyModifiers::NONE => editor.mode = Mode::Normal,
                 _ => {
-                    editor.error = Some(String::from("Unknown key"));
+                    editor.message = Some(Err(String::from("Unknown key")));
                     editor.mode = Mode::Normal;
                 }
             },
@@ -553,7 +555,7 @@ struct Editor {
     mode: Mode,
     command: Rope,
     command_cursor: usize,
-    error: Option<String>,
+    message: Option<Result<String, String>>,
     exit_code: Option<ExitCode>,
 }
 
@@ -797,6 +799,11 @@ impl Editor {
     fn execute_command(&mut self) -> anyhow::Result<()> {
         #[derive(clap::Parser)]
         enum Command {
+            Echo {
+                #[clap(long)]
+                error: bool,
+                message: Vec<String>,
+            },
             #[clap(alias = "w")]
             Write,
             #[clap(alias = "q")]
@@ -807,7 +814,7 @@ impl Editor {
             WriteQuit { exit_code: Option<u8> },
         }
         let Ok(args) = shellwords::split(&self.command.to_string()) else {
-            self.error = Some(String::from("Invalid command"));
+            self.message = Some(Err(String::from("Invalid command")));
             self.command = Rope::new();
             self.command_cursor = 0;
             self.mode = Mode::Normal;
@@ -818,8 +825,8 @@ impl Editor {
             Err(error) => {
                 let error = error.to_string();
                 match error.strip_prefix("error: ") {
-                    Some(error) => self.error = Some(error.to_string()),
-                    None => self.error = Some(error),
+                    Some(error) => self.message = Some(Err(error.to_string())),
+                    None => self.message = Some(Err(error)),
                 }
                 self.command = Rope::new();
                 self.command_cursor = 0;
@@ -828,12 +835,19 @@ impl Editor {
             }
         };
         match command {
+            Command::Echo { error, message } => {
+                if error {
+                    self.message = Some(Err(message.join(" ")));
+                } else {
+                    self.message = Some(Ok(message.join(" ")));
+                }
+            }
             Command::Write => {
                 self.save()?;
             }
             Command::Quit { exit_code } => {
                 if self.modified {
-                    self.error = Some(String::from("Unsaved changes"));
+                    self.message = Some(Err(String::from("Unsaved changes")));
                 } else {
                     self.exit_code = if let Some(exit_code) = exit_code {
                         Some(ExitCode::from(exit_code))
@@ -880,7 +894,7 @@ impl TryFrom<Rope> for Editor {
             mode: Mode::Normal,
             command: Rope::new(),
             command_cursor: 0,
-            error: None,
+            message: None,
             exit_code: None,
         })
     }
