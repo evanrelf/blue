@@ -200,7 +200,6 @@ fn render_selection(editor: &Editor, area: Rect, buffer: &mut Buffer) {
     if editor.anchor != editor.head {
         let start = min(editor.anchor, editor.head);
         let end = max(editor.anchor, editor.head);
-        let end = next_grapheme_boundary(&editor.text.byte_slice(..), end).unwrap_or(end);
         let start_line = editor.text.line_of_byte(start);
         let end_line = editor.text.line_of_byte(end.saturating_sub(1));
         for line_index in start_line..=end_line {
@@ -239,8 +238,12 @@ fn render_selection(editor: &Editor, area: Rect, buffer: &mut Buffer) {
             buffer.set_style(line_area, Style::new().bg(LIGHT_YELLOW));
         }
     }
-    if let Some(area) = byte_offset_to_area(&editor.text, editor.vertical_scroll, area, editor.head)
-    {
+    let head = if editor.anchor < editor.head {
+        prev_grapheme_boundary(&editor.text.byte_slice(..), editor.head).unwrap_or(editor.head)
+    } else {
+        editor.head
+    };
+    if let Some(area) = byte_offset_to_area(&editor.text, editor.vertical_scroll, area, head) {
         buffer.set_style(area, Style::new().bg(DARK_YELLOW));
     }
 }
