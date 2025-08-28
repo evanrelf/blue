@@ -159,8 +159,9 @@ fn render_status_bar(editor: &Editor, area: Rect, buffer: &mut Buffer) {
         }
     } else {
         let mode = match editor.mode {
-            Mode::Normal => "n",
-            Mode::Insert => "i",
+            Mode::Normal => "normal",
+            Mode::Goto => "goto",
+            Mode::Insert => "insert",
             Mode::Command => unreachable!(),
         };
         let path = match &editor.path {
@@ -173,7 +174,7 @@ fn render_status_bar(editor: &Editor, area: Rect, buffer: &mut Buffer) {
         let modified = if editor.modified { " [+]" } else { "" };
         let anchor = editor.anchor;
         let head = editor.head;
-        let status_bar = format!("{mode} {path}{modified} {anchor}-{head}");
+        let status_bar = format!("{mode} · {path}{modified} {anchor}-{head}");
         Line::raw(status_bar).underlined().render(area, buffer);
     }
 }
@@ -427,7 +428,21 @@ fn update(editor: &mut Editor, area: Rect, event: &Event) -> anyhow::Result<()> 
                 (m, KeyCode::Char('f')) if m == KeyModifiers::CONTROL => {
                     editor.scroll_down(usize::from(areas.text.height.saturating_sub(2)));
                 }
+                (m, KeyCode::Char('g')) if m == KeyModifiers::NONE => editor.mode = Mode::Goto,
                 _ => {}
+            },
+            Mode::Goto => match (key.modifiers, key.code) {
+                (m, KeyCode::Char('k')) if m == KeyModifiers::NONE => {
+                    editor.anchor = 0;
+                    editor.head = 0;
+                    editor.desired_column = None;
+                    editor.mode = Mode::Normal;
+                }
+                (m, KeyCode::Esc) if m == KeyModifiers::NONE => editor.mode = Mode::Normal,
+                _ => {
+                    editor.error = Some(String::from("Unknown key"));
+                    editor.mode = Mode::Normal;
+                }
             },
             Mode::Insert => match (key.modifiers, key.code) {
                 (m, KeyCode::Char('a')) if m == KeyModifiers::CONTROL => editor.move_line_start(),
@@ -873,6 +888,7 @@ impl TryFrom<Rope> for Editor {
 
 enum Mode {
     Normal,
+    Goto,
     Insert,
     Command,
 }
