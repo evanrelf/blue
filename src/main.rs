@@ -1,9 +1,8 @@
-mod defer;
 mod display_width;
 mod graphemes;
+mod terminal;
 
 use crate::{
-    defer::defer,
     display_width::DisplayWidth as _,
     graphemes::{
         ceil_grapheme_boundary, floor_grapheme_boundary, next_grapheme_boundary,
@@ -13,25 +12,15 @@ use crate::{
 use camino::{Utf8Path, Utf8PathBuf};
 use clap::Parser as _;
 use crop::Rope;
-use crossterm::{
-    event::{
-        DisableMouseCapture, EnableMouseCapture, Event, KeyCode, KeyModifiers,
-        KeyboardEnhancementFlags, MouseButton, MouseEventKind, PopKeyboardEnhancementFlags,
-        PushKeyboardEnhancementFlags,
-    },
-    execute,
-    terminal::{Clear, ClearType},
-};
+use crossterm::event::{Event, KeyCode, KeyModifiers, MouseButton, MouseEventKind};
 use pathdiff::diff_utf8_paths;
 use ratatui::prelude::*;
 use std::{
     cmp::{max, min},
-    env, fs, io, iter,
+    env, fs, iter,
     iter::zip,
     mem,
     process::ExitCode,
-    sync::atomic::{AtomicBool, Ordering},
-    thread,
 };
 
 #[derive(clap::Parser)]
@@ -39,31 +28,10 @@ struct Args {
     file: Option<Utf8PathBuf>,
 }
 
-static TERMINAL_RESTORED: AtomicBool = AtomicBool::new(false);
-
 fn main() -> anyhow::Result<ExitCode> {
     let args = Args::parse();
 
-    let mut terminal = ratatui::init();
-    execute!(
-        io::stdout(),
-        Clear(ClearType::All),
-        PushKeyboardEnhancementFlags(KeyboardEnhancementFlags::DISAMBIGUATE_ESCAPE_CODES),
-        EnableMouseCapture,
-    )?;
-    let _guard = defer(|| {
-        // The panic hook installed by `ratatui::init()` calls `ratatui::restore()`. If we're
-        // panicking, we avoid calling it a second time.
-        if !thread::panicking() && !TERMINAL_RESTORED.load(Ordering::SeqCst) {
-            ratatui::restore();
-            TERMINAL_RESTORED.store(true, Ordering::SeqCst);
-        }
-        let _ = execute!(
-            io::stdout(),
-            PopKeyboardEnhancementFlags,
-            DisableMouseCapture,
-        );
-    });
+    let mut terminal = terminal::init();
 
     let mut editor = if let Some(path) = args.file {
         Editor::open(path)?
@@ -87,11 +55,6 @@ fn main() -> anyhow::Result<ExitCode> {
             break exit_code;
         }
     };
-
-    if !TERMINAL_RESTORED.load(Ordering::SeqCst) {
-        ratatui::restore();
-        TERMINAL_RESTORED.store(true, Ordering::SeqCst);
-    }
 
     Ok(exit_code)
 }
