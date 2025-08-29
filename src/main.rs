@@ -733,6 +733,7 @@ impl Editor {
     }
 
     fn command_mode_move_left(&mut self, count: usize) {
+        debug_assert!(self.mode == Mode::Command);
         debug_assert!(self.command.is_grapheme_boundary(self.command_cursor));
         for _ in 0..count {
             match prev_grapheme_boundary(&self.command.byte_slice(..), self.command_cursor) {
@@ -743,6 +744,7 @@ impl Editor {
     }
 
     fn command_mode_move_right(&mut self, count: usize) {
+        debug_assert!(self.mode == Mode::Command);
         debug_assert!(self.command.is_grapheme_boundary(self.command_cursor));
         for _ in 0..count {
             match next_grapheme_boundary(&self.command.byte_slice(..), self.command_cursor) {
@@ -934,6 +936,7 @@ impl TryFrom<Rope> for Editor {
     }
 }
 
+#[derive(PartialEq)]
 enum Mode {
     Normal,
     Goto,
