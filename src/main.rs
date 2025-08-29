@@ -30,12 +30,16 @@ use std::{
     iter::zip,
     mem,
     process::ExitCode,
+    sync::atomic::{AtomicBool, Ordering},
+    thread,
 };
 
 #[derive(clap::Parser)]
 struct Args {
     file: Option<Utf8PathBuf>,
 }
+
+static TERMINAL_RESTORED: AtomicBool = AtomicBool::new(false);
 
 fn main() -> anyhow::Result<ExitCode> {
     let args = Args::parse();
@@ -48,6 +52,12 @@ fn main() -> anyhow::Result<ExitCode> {
         EnableMouseCapture,
     )?;
     let _guard = defer(|| {
+        // The panic hook installed by `ratatui::init()` calls `ratatui::restore()`. If we're
+        // panicking, we avoid calling it a second time.
+        if !thread::panicking() && !TERMINAL_RESTORED.load(Ordering::SeqCst) {
+            ratatui::restore();
+            TERMINAL_RESTORED.store(true, Ordering::SeqCst);
+        }
         let _ = execute!(
             io::stdout(),
             PopKeyboardEnhancementFlags,
@@ -78,7 +88,10 @@ fn main() -> anyhow::Result<ExitCode> {
         }
     };
 
-    ratatui::restore();
+    if !TERMINAL_RESTORED.load(Ordering::SeqCst) {
+        ratatui::restore();
+        TERMINAL_RESTORED.store(true, Ordering::SeqCst);
+    }
 
     Ok(exit_code)
 }
@@ -391,6 +404,7 @@ fn update(editor: &mut Editor, area: Rect, event: &Event) -> anyhow::Result<()> 
     match event {
         Event::Key(key) => match editor.mode {
             Mode::Normal => match (key.modifiers, key.code) {
+                (m, KeyCode::Char('p')) if m == KeyModifiers::CONTROL => panic!(),
                 (m, KeyCode::Char('h')) if m == KeyModifiers::NONE => editor.move_left(1),
                 (m, KeyCode::Char('l')) if m == KeyModifiers::NONE => editor.move_right(1),
                 (m, KeyCode::Char('k')) if m == KeyModifiers::NONE => editor.move_up(1),
