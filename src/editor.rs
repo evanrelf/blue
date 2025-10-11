@@ -18,7 +18,7 @@ pub struct Editor {
     pub text: Rope,
     pub anchor: usize,
     pub head: usize,
-    pub desired_column: Option<usize>,
+    pub desired_column: usize,
     pub vertical_scroll: usize,
     pub mode: Mode,
     pub command: Rope,
@@ -59,6 +59,15 @@ impl Editor {
         Ok(())
     }
 
+    pub fn update_desired_column(&mut self) {
+        let current_line_index = self.text.line_of_byte(self.head);
+        let current_line_byte_index = self.text.byte_of_line(current_line_index);
+        self.desired_column = self
+            .text
+            .byte_slice(current_line_byte_index..self.head)
+            .display_width();
+    }
+
     pub fn extend_left(&mut self, count: usize) {
         debug_assert!(self.text.is_grapheme_boundary(self.head));
         for _ in 0..count {
@@ -67,7 +76,7 @@ impl Editor {
                 _ => break,
             }
         }
-        self.desired_column = None;
+        self.update_desired_column();
     }
 
     pub fn extend_right(&mut self, count: usize) {
@@ -78,7 +87,7 @@ impl Editor {
                 _ => break,
             }
         }
-        self.desired_column = None;
+        self.update_desired_column();
     }
 
     pub fn extend_up(&mut self, count: usize) {
@@ -89,20 +98,13 @@ impl Editor {
                 break;
             }
             let target_line_index = current_line_index - 1;
-            let current_line_byte_index = self.text.byte_of_line(current_line_index);
-            let desired_column = self.desired_column.unwrap_or_else(|| {
-                self.text
-                    .byte_slice(current_line_byte_index..self.head)
-                    .display_width()
-            });
-            self.desired_column = Some(desired_column);
             let target_line_byte_index = self.text.byte_of_line(target_line_index);
             let target_line_slice = self.text.line(target_line_index);
             let mut target_line_prefix = 0;
             let mut byte_offset = target_line_byte_index;
             for grapheme in target_line_slice.graphemes() {
                 let grapheme_width = grapheme.as_ref().display_width();
-                if target_line_prefix + grapheme_width > desired_column {
+                if target_line_prefix + grapheme_width > self.desired_column {
                     break;
                 }
                 target_line_prefix += grapheme_width;
@@ -121,20 +123,13 @@ impl Editor {
                 self.head = self.text.byte_len();
                 break;
             }
-            let current_line_byte_index = self.text.byte_of_line(current_line_index);
-            let desired_column = self.desired_column.unwrap_or_else(|| {
-                self.text
-                    .byte_slice(current_line_byte_index..self.head)
-                    .display_width()
-            });
-            self.desired_column = Some(desired_column);
             let target_line_byte_index = self.text.byte_of_line(target_line_index);
             let target_line_slice = self.text.line(target_line_index);
             let mut target_line_prefix = 0;
             let mut byte_offset = target_line_byte_index;
             for grapheme in target_line_slice.graphemes() {
                 let grapheme_width = grapheme.as_ref().display_width();
-                if target_line_prefix + grapheme_width > desired_column {
+                if target_line_prefix + grapheme_width > self.desired_column {
                     break;
                 }
                 target_line_prefix += grapheme_width;
@@ -149,6 +144,7 @@ impl Editor {
         let line_index = self.text.line_of_byte(self.head);
         let line_start_byte_index = self.text.byte_of_line(line_index);
         self.head = line_start_byte_index;
+        self.update_desired_column();
     }
 
     pub fn extend_line_end(&mut self) {
@@ -159,6 +155,7 @@ impl Editor {
         let line = self.text.line(line_index);
         let line_end_byte_index = line_start_byte_index + line.byte_len();
         self.head = line_end_byte_index;
+        self.update_desired_column();
     }
 
     pub fn move_left(&mut self, count: usize) {
@@ -385,7 +382,7 @@ impl TryFrom<Rope> for Editor {
             text: rope,
             anchor: 0,
             head: 0,
-            desired_column: None,
+            desired_column: 0,
             vertical_scroll: 0,
             mode: Mode::Normal,
             command: Rope::new(),

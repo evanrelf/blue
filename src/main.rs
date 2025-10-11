@@ -420,7 +420,7 @@ fn update(editor: &mut Editor, area: Rect, event: &Event) -> anyhow::Result<()> 
                 (m, KeyCode::Char('k')) if m == KeyModifiers::NONE => {
                     editor.anchor = 0;
                     editor.head = 0;
-                    editor.desired_column = None;
+                    editor.update_desired_column();
                     editor.mode = Mode::Normal;
                 }
                 (m, KeyCode::Char('h')) if m == KeyModifiers::NONE => {
@@ -458,7 +458,7 @@ fn update(editor: &mut Editor, area: Rect, event: &Event) -> anyhow::Result<()> 
                 }
                 (m, KeyCode::Enter) if m == KeyModifiers::NONE => {
                     editor.insert("\n");
-                    editor.desired_column = None;
+                    editor.update_desired_column();
                 }
                 (m, KeyCode::Backspace) if m == KeyModifiers::NONE => editor.delete_before(),
                 (m, KeyCode::Esc) if m == KeyModifiers::NONE => editor.mode = Mode::Normal,
@@ -535,7 +535,7 @@ fn update(editor: &mut Editor, area: Rect, event: &Event) -> anyhow::Result<()> 
                             ceil_grapheme_boundary(&editor.text.byte_slice(..), byte_offset + 1);
                     }
                     editor.anchor = byte_offset;
-                    editor.desired_column = None;
+                    editor.update_desired_column();
                 }
             }
             MouseEventKind::Down(MouseButton::Right)
@@ -552,7 +552,7 @@ fn update(editor: &mut Editor, area: Rect, event: &Event) -> anyhow::Result<()> 
                         editor.head =
                             ceil_grapheme_boundary(&editor.text.byte_slice(..), byte_offset + 1);
                     }
-                    editor.desired_column = None;
+                    editor.update_desired_column();
                 }
             }
             _ => {}
