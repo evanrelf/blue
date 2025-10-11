@@ -144,6 +144,7 @@ impl Editor {
         let line_index = self.text.line_of_byte(self.head);
         let line_start_byte_index = self.text.byte_of_line(line_index);
         self.head = line_start_byte_index;
+        self.extend_right(1);
         self.update_desired_column();
     }
 
