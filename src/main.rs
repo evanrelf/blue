@@ -39,6 +39,8 @@ fn main() -> anyhow::Result<ExitCode> {
         Editor::new()?
     };
 
+    editor.pwd = Some(Utf8PathBuf::try_from(env::current_dir()?)?);
+
     let mut area = Rect::default();
 
     let exit_code = loop {
@@ -142,9 +144,10 @@ fn render_status_bar(editor: &Editor, area: Rect, buffer: &mut Buffer) {
             Mode::Insert => "insert",
             Mode::Command => unreachable!(),
         };
-        let path = match &editor.path {
-            None => String::from("*scratch*"),
-            Some(path) => match diff_utf8_paths(path, &editor.pwd) {
+        let path = match (&editor.pwd, &editor.path) {
+            (_, None) => String::from("*scratch*"),
+            (None, Some(path)) => path.to_string(),
+            (Some(pwd), Some(path)) => match diff_utf8_paths(path, pwd) {
                 None => path.to_string(),
                 Some(path) => path.to_string(),
             },
@@ -557,7 +560,7 @@ fn update(editor: &mut Editor, area: Rect, event: &Event) -> anyhow::Result<()> 
 }
 
 struct Editor {
-    pwd: Utf8PathBuf,
+    pwd: Option<Utf8PathBuf>,
     path: Option<Utf8PathBuf>,
     modified: bool,
     text: Rope,
@@ -919,7 +922,7 @@ impl TryFrom<Rope> for Editor {
     type Error = anyhow::Error;
     fn try_from(rope: Rope) -> Result<Self, Self::Error> {
         Ok(Self {
-            pwd: Utf8PathBuf::try_from(env::current_dir()?)?,
+            pwd: None,
             path: None,
             modified: false,
             text: rope,
