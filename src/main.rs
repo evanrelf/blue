@@ -418,9 +418,7 @@ fn update(editor: &mut Editor, area: Rect, event: &Event) -> anyhow::Result<()> 
             },
             Mode::Goto => match (key.modifiers, key.code) {
                 (m, KeyCode::Char('k')) if m == KeyModifiers::NONE => {
-                    editor.anchor = 0;
-                    editor.head = 0;
-                    editor.update_desired_column();
+                    editor.move_to(0);
                     editor.mode = Mode::Normal;
                 }
                 (m, KeyCode::Char('h')) if m == KeyModifiers::NONE => {
@@ -458,7 +456,6 @@ fn update(editor: &mut Editor, area: Rect, event: &Event) -> anyhow::Result<()> 
                 }
                 (m, KeyCode::Enter) if m == KeyModifiers::NONE => {
                     editor.insert("\n");
-                    editor.update_desired_column();
                 }
                 (m, KeyCode::Backspace) if m == KeyModifiers::NONE => editor.delete_before(),
                 (m, KeyCode::Esc) if m == KeyModifiers::NONE => editor.mode = Mode::Normal,

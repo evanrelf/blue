@@ -166,6 +166,13 @@ impl Editor {
         self.update_desired_column();
     }
 
+    pub fn move_to(&mut self, byte_offset: usize) {
+        debug_assert!(self.text.is_grapheme_boundary(byte_offset));
+        self.anchor = byte_offset;
+        self.head = byte_offset;
+        self.update_desired_column();
+    }
+
     pub fn move_left(&mut self, count: usize) {
         self.extend_left(count);
         self.reduce();
@@ -257,6 +264,7 @@ impl Editor {
         self.text.insert(self.head, text);
         self.head += text.len();
         self.reduce();
+        self.update_desired_column();
         self.modified = true;
     }
 
