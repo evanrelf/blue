@@ -518,6 +518,7 @@ fn update(editor: &mut Editor, area: Rect, event: &Event) -> anyhow::Result<()> 
         Event::Mouse(mouse) => match mouse.kind {
             MouseEventKind::ScrollUp => editor.scroll_up(3),
             MouseEventKind::ScrollDown => editor.scroll_down(3),
+            // Move
             MouseEventKind::Down(MouseButton::Left) => {
                 if let Some(byte_offset) = position_to_byte_offset(
                     &editor.text,
@@ -525,16 +526,10 @@ fn update(editor: &mut Editor, area: Rect, event: &Event) -> anyhow::Result<()> 
                     areas.text,
                     Position::new(mouse.column, mouse.row),
                 ) {
-                    if editor.is_backward() {
-                        editor.head = byte_offset;
-                    } else {
-                        editor.head =
-                            ceil_grapheme_boundary(&editor.text.byte_slice(..), byte_offset + 1);
-                    }
-                    editor.anchor = byte_offset;
-                    editor.update_desired_column();
+                    editor.move_to(byte_offset);
                 }
             }
+            // Extend
             MouseEventKind::Down(MouseButton::Right)
             | MouseEventKind::Drag(MouseButton::Left | MouseButton::Right) => {
                 if let Some(byte_offset) = position_to_byte_offset(
@@ -543,13 +538,11 @@ fn update(editor: &mut Editor, area: Rect, event: &Event) -> anyhow::Result<()> 
                     areas.text,
                     Position::new(mouse.column, mouse.row),
                 ) {
-                    if editor.is_backward() {
-                        editor.head = byte_offset;
+                    editor.extend_to(if editor.is_backward() {
+                        byte_offset
                     } else {
-                        editor.head =
-                            ceil_grapheme_boundary(&editor.text.byte_slice(..), byte_offset + 1);
-                    }
-                    editor.update_desired_column();
+                        ceil_grapheme_boundary(&editor.text.byte_slice(..), byte_offset + 1)
+                    });
                 }
             }
             _ => {}

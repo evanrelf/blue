@@ -59,13 +59,19 @@ impl Editor {
         Ok(())
     }
 
-    pub fn update_desired_column(&mut self) {
+    fn update_desired_column(&mut self) {
         let current_line_index = self.text.line_of_byte(self.head);
         let current_line_byte_index = self.text.byte_of_line(current_line_index);
         self.desired_column = self
             .text
             .byte_slice(current_line_byte_index..self.head)
             .display_width();
+    }
+
+    pub fn extend_to(&mut self, byte_offset: usize) {
+        debug_assert!(self.text.is_grapheme_boundary(byte_offset));
+        self.head = byte_offset;
+        self.update_desired_column();
     }
 
     pub fn extend_left(&mut self, count: usize) {
@@ -167,10 +173,8 @@ impl Editor {
     }
 
     pub fn move_to(&mut self, byte_offset: usize) {
-        debug_assert!(self.text.is_grapheme_boundary(byte_offset));
-        self.anchor = byte_offset;
-        self.head = byte_offset;
-        self.update_desired_column();
+        self.extend_to(byte_offset);
+        self.reduce();
     }
 
     pub fn move_left(&mut self, count: usize) {
@@ -263,8 +267,8 @@ impl Editor {
     pub fn insert(&mut self, text: &str) {
         self.text.insert(self.head, text);
         self.head += text.len();
-        self.reduce();
         self.update_desired_column();
+        self.reduce();
         self.modified = true;
     }
 
