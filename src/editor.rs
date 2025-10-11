@@ -144,7 +144,9 @@ impl Editor {
         let line_index = self.text.line_of_byte(self.head);
         let line_start_byte_index = self.text.byte_of_line(line_index);
         self.head = line_start_byte_index;
-        self.extend_right(1);
+        if self.is_forward() {
+            self.extend_right(1);
+        }
         self.update_desired_column();
     }
 
@@ -156,6 +158,9 @@ impl Editor {
         let line = self.text.line(line_index);
         let line_end_byte_index = line_start_byte_index + line.byte_len();
         self.head = line_end_byte_index;
+        if self.is_backward() {
+            self.extend_left(1);
+        }
         self.update_desired_column();
     }
 
