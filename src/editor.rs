@@ -18,7 +18,7 @@ pub struct Editor {
     pub text: Rope,
     pub anchor: usize,
     pub head: usize,
-    pub desired_column: usize,
+    desired_column: usize,
     pub vertical_scroll: usize,
     pub mode: Mode,
     pub command: Rope,
