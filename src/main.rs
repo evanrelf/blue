@@ -6,7 +6,7 @@ mod terminal;
 use crate::{
     display_width::DisplayWidth as _,
     editor::{Editor, Mode},
-    graphemes::{ceil_grapheme_boundary, floor_grapheme_boundary, prev_grapheme_boundary},
+    graphemes::{floor_grapheme_boundary, prev_grapheme_boundary},
 };
 use camino::Utf8PathBuf;
 use clap::Parser as _;
@@ -538,11 +538,7 @@ fn update(editor: &mut Editor, area: Rect, event: &Event) -> anyhow::Result<()> 
                     areas.text,
                     Position::new(mouse.column, mouse.row),
                 ) {
-                    editor.extend_to(if editor.is_backward() {
-                        byte_offset
-                    } else {
-                        ceil_grapheme_boundary(&editor.text.byte_slice(..), byte_offset + 1)
-                    });
+                    editor.extend_to(byte_offset);
                 }
             }
             _ => {}

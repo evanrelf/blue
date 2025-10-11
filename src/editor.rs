@@ -1,6 +1,6 @@
 use crate::{
     display_width::DisplayWidth as _,
-    graphemes::{next_grapheme_boundary, prev_grapheme_boundary},
+    graphemes::{ceil_grapheme_boundary, next_grapheme_boundary, prev_grapheme_boundary},
 };
 use camino::{Utf8Path, Utf8PathBuf};
 use clap::Parser as _;
@@ -70,7 +70,11 @@ impl Editor {
 
     pub fn extend_to(&mut self, byte_offset: usize) {
         debug_assert!(self.text.is_grapheme_boundary(byte_offset));
-        self.head = byte_offset;
+        if self.is_backward() {
+            self.head = byte_offset;
+        } else {
+            self.head = ceil_grapheme_boundary(&self.text.byte_slice(..), byte_offset + 1);
+        }
         self.update_desired_column();
     }
 
@@ -175,6 +179,8 @@ impl Editor {
     pub fn move_to(&mut self, byte_offset: usize) {
         self.extend_to(byte_offset);
         self.reduce();
+        self.extend_left(1);
+        self.flip_forward();
     }
 
     pub fn move_left(&mut self, count: usize) {
