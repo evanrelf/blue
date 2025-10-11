@@ -82,6 +82,7 @@ impl Editor {
     }
 
     pub fn extend_up(&mut self, count: usize) {
+        debug_assert!(self.text.is_grapheme_boundary(self.head));
         for _ in 0..count {
             let current_line_index = self.text.line_of_byte(self.head);
             if current_line_index == 0 {
@@ -112,6 +113,7 @@ impl Editor {
     }
 
     pub fn extend_down(&mut self, count: usize) {
+        debug_assert!(self.text.is_grapheme_boundary(self.head));
         for _ in 0..count {
             let current_line_index = self.text.line_of_byte(self.head);
             let target_line_index = current_line_index + 1;
@@ -143,12 +145,14 @@ impl Editor {
     }
 
     pub fn extend_line_start(&mut self) {
+        debug_assert!(self.text.is_grapheme_boundary(self.head));
         let line_index = self.text.line_of_byte(self.head);
         let line_start_byte_index = self.text.byte_of_line(line_index);
         self.head = line_start_byte_index;
     }
 
     pub fn extend_line_end(&mut self) {
+        debug_assert!(self.text.is_grapheme_boundary(self.head));
         let line_index = self.text.line_of_byte(self.head);
         let line_start_byte_index = self.text.byte_of_line(line_index);
         // TODO: Fix `line index out of bounds` panic when running this at EOF
