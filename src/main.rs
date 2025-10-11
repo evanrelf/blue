@@ -81,7 +81,7 @@ impl Areas {
             let n = text.line_len();
             let digits = 1 + max(1, n).ilog10();
             u16::try_from(max(2, digits) + 1)
-                .expect("Line number width should always be very small")
+                .expect("Line numbers width should always be very small")
         };
         let [status_bar, main] = Layout::vertical([
             // status bar
@@ -239,7 +239,8 @@ fn render_selection(editor: &Editor, area: Rect, buffer: &mut Buffer) {
     }
 }
 
-// TODO: Optimize
+// TODO: Add tests for position conversions. Then try and simplify.
+
 fn byte_offset_to_area(
     rope: &Rope,
     vertical_scroll: usize,
@@ -399,16 +400,20 @@ fn update(editor: &mut Editor, area: Rect, event: &Event) -> anyhow::Result<()> 
                     editor.mode = Mode::Command;
                 }
                 (m, KeyCode::Char('u')) if m == KeyModifiers::CONTROL => {
-                    editor.scroll_up(usize::from(areas.text.height.saturating_sub(1) / 2));
+                    let half_height = usize::from(areas.text.height.saturating_sub(1) / 2);
+                    editor.scroll_up(half_height);
                 }
                 (m, KeyCode::Char('d')) if m == KeyModifiers::CONTROL => {
-                    editor.scroll_down(usize::from(areas.text.height.saturating_sub(1) / 2));
+                    let half_height = usize::from(areas.text.height.saturating_sub(1) / 2);
+                    editor.scroll_down(half_height);
                 }
                 (m, KeyCode::Char('b')) if m == KeyModifiers::CONTROL => {
-                    editor.scroll_up(usize::from(areas.text.height.saturating_sub(2)));
+                    let full_height = usize::from(areas.text.height.saturating_sub(2));
+                    editor.scroll_up(full_height);
                 }
                 (m, KeyCode::Char('f')) if m == KeyModifiers::CONTROL => {
-                    editor.scroll_down(usize::from(areas.text.height.saturating_sub(2)));
+                    let full_height = usize::from(areas.text.height.saturating_sub(2));
+                    editor.scroll_down(full_height);
                 }
                 (m, KeyCode::Char('g')) if m == KeyModifiers::NONE => editor.mode = Mode::Goto,
                 _ => {}
@@ -859,7 +864,8 @@ impl Editor {
             self.mode = Mode::Normal;
             return Ok(());
         };
-        let command = match Command::try_parse_from(iter::once(String::from("blue")).chain(args)) {
+        let args = iter::once(String::from("blue")).chain(args);
+        let command = match Command::try_parse_from(args) {
             Ok(command) => command,
             Err(error) => {
                 let error = error.to_string();
