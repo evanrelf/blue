@@ -361,6 +361,12 @@ impl Editor {
             self.mode = Mode::Normal;
             return Ok(());
         };
+        if args.is_empty() {
+            self.command = Rope::new();
+            self.command_cursor = 0;
+            self.mode = Mode::Normal;
+            return Ok(());
+        }
         let args = iter::once(String::from("blue")).chain(args);
         let command = match Command::try_parse_from(args) {
             Ok(command) => command,
