@@ -476,12 +476,12 @@ fn update(editor: &mut Editor, area: Rect, event: &Event) -> anyhow::Result<()> 
                 (m, KeyCode::Char('f')) if m == KeyModifiers::CONTROL => {
                     editor.command_mode_move_right(1);
                 }
-                // (m, KeyCode::Char('k')) if m == KeyModifiers::CONTROL => {
-                //     todo!()
-                // }
-                // (m, KeyCode::Char('u')) if m == KeyModifiers::CONTROL => {
-                //     todo!()
-                // }
+                (m, KeyCode::Char('u')) if m == KeyModifiers::CONTROL => {
+                    editor.command_mode_delete_before();
+                }
+                (m, KeyCode::Char('k')) if m == KeyModifiers::CONTROL => {
+                    editor.command_mode_delete_after();
+                }
                 (m, KeyCode::Char(char)) if m == KeyModifiers::NONE || m == KeyModifiers::SHIFT => {
                     let string = char.to_string();
                     editor.command.insert(editor.command_cursor, &string);

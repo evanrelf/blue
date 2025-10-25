@@ -235,6 +235,24 @@ impl Editor {
         }
     }
 
+    pub fn command_mode_delete_before(&mut self) {
+        debug_assert!(self.mode == Mode::Command);
+        debug_assert!(self.command.is_grapheme_boundary(self.command_cursor));
+        if self.command_cursor > 0 {
+            self.command.delete(0..self.command_cursor);
+            self.command_cursor = 0;
+        }
+    }
+
+    pub fn command_mode_delete_after(&mut self) {
+        debug_assert!(self.mode == Mode::Command);
+        debug_assert!(self.command.is_grapheme_boundary(self.command_cursor));
+        let end = self.command.byte_len();
+        if self.command_cursor < end {
+            self.command.delete(self.command_cursor..end);
+        }
+    }
+
     pub fn is_forward(&self) -> bool {
         self.anchor <= self.head
     }
