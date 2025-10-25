@@ -6,7 +6,7 @@ edition = "2024"
 [dependencies]
 anyhow = "1.0.100"
 camino = "1.2.1"
-clap = { version = "4.5.48", features = ["derive", "std"], default-features = false }
+clap = { version = "4.5.48", features = ["derive"] }
 crop = { version = "0.4.3", features = ["graphemes"] }
 crossterm = "0.29.0"
 pathdiff = { version = "0.2.3", features = ["camino"] }
