@@ -363,7 +363,20 @@ fn position_to_byte_offset(
 
 #[expect(clippy::too_many_lines)]
 fn update(editor: &mut Editor, area: Rect, event: &Event) -> anyhow::Result<()> {
-    editor.message = None;
+    let dismiss_message = match event {
+        Event::Mouse(mouse) => !matches!(
+            mouse.kind,
+            MouseEventKind::Moved
+                | MouseEventKind::ScrollUp
+                | MouseEventKind::ScrollDown
+                | MouseEventKind::ScrollLeft
+                | MouseEventKind::ScrollRight
+        ),
+        _ => true,
+    };
+    if dismiss_message {
+        editor.message = None;
+    }
     let areas = Areas::new(&editor.text, area);
     #[allow(clippy::match_same_arms)]
     match event {
