@@ -366,8 +366,12 @@ impl Editor {
             Ok(command) => command,
             Err(error) => {
                 let error = error.to_string();
-                let error = error.strip_prefix("error: ").unwrap_or(&error);
-                let error = error.strip_suffix("Usage:\n").unwrap_or(error);
+                let error = error
+                    .strip_prefix("error: ")
+                    .unwrap_or(&error)
+                    .lines()
+                    .next()
+                    .unwrap_or("");
                 self.message = Some(Err(error.to_string()));
                 self.command = Rope::new();
                 self.command_cursor = 0;
