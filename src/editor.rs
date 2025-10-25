@@ -334,6 +334,11 @@ impl Editor {
 
     pub fn execute_command(&mut self) -> anyhow::Result<()> {
         #[derive(clap::Parser)]
+        #[clap(
+            disable_help_flag = true,
+            disable_help_subcommand = true,
+            override_usage = ""
+        )]
         enum Command {
             Echo {
                 #[clap(long)]
@@ -361,10 +366,9 @@ impl Editor {
             Ok(command) => command,
             Err(error) => {
                 let error = error.to_string();
-                match error.strip_prefix("error: ") {
-                    Some(error) => self.message = Some(Err(error.to_string())),
-                    None => self.message = Some(Err(error)),
-                }
+                let error = error.strip_prefix("error: ").unwrap_or(&error);
+                let error = error.strip_suffix("Usage:\n").unwrap_or(error);
+                self.message = Some(Err(error.to_string()));
                 self.command = Rope::new();
                 self.command_cursor = 0;
                 self.mode = Mode::Normal;
